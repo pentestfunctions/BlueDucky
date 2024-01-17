@@ -66,8 +66,8 @@ python3 BlueDucky.py
 - Implementing keyboard combinations.
 - class Key_Codes(Enum) is in the main script file now just while I get GUI + B for example working (duckyscript)
 - Current implementations:
-6.1 REM (Comment)
-6.2 STRING (Text Input)
+1. REM (Comment)
+2. STRING (Text Input)
 
 #### 📝 Example payload.txt:
 ```bash
