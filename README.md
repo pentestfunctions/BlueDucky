@@ -62,11 +62,11 @@ python3 BlueDucky.py
 ## Duckyscript 💻
 🚧 Work in Progress:
 
+- Implementing encode_combo_input as an alternative for combos, so we don't have to rebuild strings each time. 
 - Implementing keyboard combinations.
 - Current implementations:
 6.1 REM (Comment)
 6.2 STRING (Text Input)
-
 
 #### 📝 Example payload.txt:
 ```bash
@@ -75,6 +75,7 @@ STRING hello there 123
 ```
 
 ## Enjoy experimenting with BlueDucky! 🌟
+
 
 
 
