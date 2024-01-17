@@ -64,6 +64,7 @@ python3 BlueDucky.py
 
 - Implementing encode_combo_input as an alternative for combos, so we don't have to rebuild strings each time. 
 - Implementing keyboard combinations.
+- class Key_Codes(Enum) is in the main script file now just while I get GUI + B for example working (duckyscript)
 - Current implementations:
 6.1 REM (Comment)
 6.2 STRING (Text Input)
