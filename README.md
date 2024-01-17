@@ -1,6 +1,7 @@
-# BlueDucky 🦆
+# BlueDucky (Android) 🦆
 
 🚨 CVE-2023-45866 - BlueDucky Implementation (Using DuckyScript)
+
 🔓 Unauthenticated Peering Leading to Code Execution (Using HID Keyboard)
 
 [This is an implementation of the CVE discovered by marcnewlin](https://github.com/marcnewlin/hi_my_name_is_keyboard)
