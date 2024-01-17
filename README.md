@@ -14,7 +14,7 @@ BlueDucky is a powerful tool for exploiting a vulnerability in Bluetooth devices
 
 1. 📡 Load saved Bluetooth devices that are no longer visible but have Bluetooth still enabled.
 2. 📂 Automatically save any devices you scan.
-3. 💌 Send a default message ("Hello There") if no `payload.txt` is present.
+3. 💌 Send messages via ducky script format to interact with devices.
 
 I've successfully run this on a Raspberry Pi 4 using the default Bluetooth module. It works against various phones, with an interesting exception for a New Zealand brand, Vodafone.
 
