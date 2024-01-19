@@ -71,6 +71,25 @@ STRING ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890!@#$%^&*()_
 GUI D
 ```
 
+```bash
+DELAY 500
+ESCAPE
+GUI d
+ALT ESCAPE
+GUI b
+DELAY 700
+REM PRIVATE_BROWSER is equal to CTRL + SHIFT + N
+PRIVATE_BROWSER
+DELAY 700
+CTRL l
+ALT d
+DELAY 300
+STRING hackertyper.net
+DELAY 300
+ENTER
+DELAY 300
+```
+
 ## Enjoy experimenting with BlueDucky! 🌟
 
 
