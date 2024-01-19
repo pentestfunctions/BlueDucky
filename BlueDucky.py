@@ -235,11 +235,14 @@ class L2CAPClient:
         if args:
             log.debug(f"Attempting to send... {args}")
             self.send(self.encode_keyboard_input(*args))
+            time.sleep(delay)
+            # Send an empty report to release the key
+            self.send(self.encode_keyboard_input())
+            time.sleep(delay)
         else:
             # If no arguments, send an empty report to release keys
             self.send(self.encode_keyboard_input())
         time.sleep(delay)
-        # Update current_position here after successful send
         return True  # Indicate successful send
 
     def send_keyboard_combination(self, modifier, key, delay=0.004):
