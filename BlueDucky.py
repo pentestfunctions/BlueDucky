@@ -91,7 +91,7 @@ class PairingAgent:
         try:
             log.debug("Terminating agent process...")
             self.agent.kill()
-            time.sleep(0.25)
+            time.sleep(2)
             log.debug("Agent process terminated.")
         except Exception as e:
             log.error(f"Error terminating agent process: {e}")
@@ -231,7 +231,7 @@ class L2CAPClient:
     def send_keyboard_report(self, *args):
         self.send(self.encode_keyboard_input(*args))
 
-    def send_keypress(self, *args, delay=0.004):
+    def send_keypress(self, *args, delay=0.0001):
         if args:
             log.debug(f"Attempting to send... {args}")
             self.send(self.encode_keyboard_input(*args))
@@ -355,14 +355,11 @@ def process_duckyscript(client, duckyscript, current_line=0, current_position=0)
                                 client.send_keypress(key_code)
                             else:
                                 log.warning(f"Unsupported character '{char}' in Duckyscript")
-
+                                
                         current_position = char_position
 
                     except AttributeError as e:
                         log.warning(f"Attribute error: {e} - Unsupported character '{char}' in Duckyscript")
-
-                client.send_keypress()  # Release after each key press
-                client.send_keypress()
             
             elif any(mod in line for mod in ["SHIFT", "ALT", "CTRL", "GUI", "COMMAND", "WINDOWS"]):
                 # Process modifier key combinations
@@ -381,8 +378,6 @@ def process_duckyscript(client, duckyscript, current_line=0, current_position=0)
                     log.warning(f"Invalid combination format: {line}")
             elif line.startswith("ENTER"):
                 client.send_keypress(Key_Codes.ENTER)
-                client.send_keypress()  # Release after each key press
-                client.send_keypress()
             # After processing each line, reset current_position to 0 and increment current_line
             current_position = 0  
             current_line += 1  
@@ -605,6 +600,7 @@ def main():
         try:
             hid_interrupt_client = setup_and_connect(connection_manager, target_address)
             process_duckyscript(hid_interrupt_client, duckyscript, current_line, current_position)
+            time.sleep(2)
             break  # Exit loop if successful
         except ReconnectionRequiredException as e:
             log.info("Reconnection required. Attempting to reconnect...")
