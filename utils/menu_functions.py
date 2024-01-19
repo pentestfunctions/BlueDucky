@@ -4,6 +4,7 @@ import bluetooth
 import re
 import subprocess
 import time
+import platform
 
 def get_target_address():
     target_address = input("\nWhat is the target address? Leave blank and we will scan for you: ")
@@ -43,9 +44,7 @@ def run(command):
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return result
 
-def print_blue_ascii_art():
-    blue_color_code = "\033[34m"  # ANSI escape code for blue text
-    reset_color_code = "\033[0m"  # ANSI escape code to reset text color
+def print_fancy_ascii_art():
 
     ascii_art = """
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⣄⣤⣤⣄⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -79,8 +78,7 @@ def print_blue_ascii_art():
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣿⣿⣧⣾⡟⣷⣿⠀⠀⠘⣿⣀⣸⡟⢹⡿⠟⠁⠀⣿⡀⢸⣏⢿⣇⣠⣿⢻⣏⢿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠛⠁⠀⠙⠙⠁⠘⠋⠀⠀⠀⠈⠉⠉⠀⠘⠁⠀⠀⠀⠉⠁⠈⠁⠀⠉⠉⠁⠈⠋⠈⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"""
 
-
-    print(blue_color_code + ascii_art + reset_color_code)
+    print("\033[1;36m" + ascii_art + "\033[0m")  # Cyan color
 
 def clear_screen():
     os.system('clear')
@@ -127,15 +125,20 @@ def scan_for_devices():
         save_devices_to_file(known_devices)
     return device_list
 
+def print_menu():
+    title = "BlueDucky - Bluetooth Device Attacker"
+    separator = "=" * 70
+    print("\033[1;35m" + separator)  # Purple color for separator
+    print("\033[1;33m" + title.center(len(separator)))  # Yellow color for title
+    print("\033[1;35m" + separator + "\033[0m")  # Purple color for separator
+    print("\033[1;32m" + "Remember, you can still attack devices without visibility..." + "\033[0m")
+    print("\033[1;32m" + "If you have their MAC address" + "\033[0m")
+    print("\033[1;35m" + separator + "\033[0m")  # Purple color for separator
+
 def main_menu():
     clear_screen()
-    print_blue_ascii_art()
-    title = "BlueDucky - Bluetooth Device Attacker"
-    separator = 70 * "="
-    print(separator)
-    print(f"{separator}\n{title.center(len(separator))}\n{separator}")
-    print("Remember, you can still attack devices without visibility...\nIf you have their MAC address")
-    print(separator)
+    print_fancy_ascii_art()
+    print_menu()
 
 def is_valid_mac_address(mac_address):
     # Regular expression to match a MAC address in the form XX:XX:XX:XX:XX:XX
