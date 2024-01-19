@@ -72,7 +72,8 @@ GUI D
 ```
 
 ```bash
-DELAY 500
+REM Opens a private browser to hackertyper.net
+DELAY 200
 ESCAPE
 GUI d
 ALT ESCAPE
@@ -82,7 +83,6 @@ REM PRIVATE_BROWSER is equal to CTRL + SHIFT + N
 PRIVATE_BROWSER
 DELAY 700
 CTRL l
-ALT d
 DELAY 300
 STRING hackertyper.net
 DELAY 300
