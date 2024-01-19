@@ -1,5 +1,9 @@
 # BlueDucky (Android) 🦆
 
+<p align="center">
+  <img src="./images/duckmenu.png">
+</p>
+
 🚨 CVE-2023-45866 - BlueDucky Implementation (Using DuckyScript)
 
 🔓 Unauthenticated Peering Leading to Code Execution (Using HID Keyboard)
