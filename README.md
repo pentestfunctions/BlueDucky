@@ -62,7 +62,8 @@ python3 BlueDucky.py
 
 ## Duckyscript 💻
 🚧 Work in Progress:
-- Figuring out the best way to handle DELAY formatting in duckyscript as we need to constantly sending keyboard release signals to stay stable.
+- Suggest me ideas
+
 
 #### 📝 Example payload.txt:
 ```bash
