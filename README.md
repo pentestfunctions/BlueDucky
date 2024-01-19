@@ -62,18 +62,13 @@ python3 BlueDucky.py
 
 ## Duckyscript 💻
 🚧 Work in Progress:
-
-- Implementing encode_combo_input as an alternative for combos, so we don't have to rebuild strings each time. 
-- Implementing keyboard combinations.
-- class Key_Codes(Enum) is in the main script file now just while I get GUI + B for example working (duckyscript)
-- Current implementations:
-1. REM (Comment)
-2. STRING (Text Input)
+- Figuring out the best way to handle DELAY formatting in duckyscript as we need to constantly sending keyboard release signals to stay stable.
 
 #### 📝 Example payload.txt:
 ```bash
-REM This is a comment and will not run
-STRING hello there 123
+REM Title of the payload
+STRING ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890!@#$%^&*()_-=+\|[{]};:'",<.>/?
+GUI D
 ```
 
 ## Enjoy experimenting with BlueDucky! 🌟
