@@ -7,24 +7,30 @@ import time
 
 def get_target_address():
     target_address = input("\nWhat is the target address? Leave blank and we will scan for you: ")
+
     if target_address == "":
         devices = scan_for_devices()
         if devices:
-            if len(devices) > 1:  # More than one device means a scan was performed
+            # Check if the returned list is from known devices or scanned devices
+            if len(devices) == 1 and isinstance(devices[0], tuple) and len(devices[0]) == 2:
+                # A single known device was chosen, no need to ask for selection
+                target_address = devices[0][0]
+            else:
+                # Show list of scanned devices for user selection
+                for idx, (addr, name) in enumerate(devices):
+                    print(f"{idx + 1}: Device Name: {name}, Address: {addr}")
                 selection = int(input("\nSelect a device by number: ")) - 1
                 if 0 <= selection < len(devices):
                     target_address = devices[selection][0]
                 else:
                     print("\nInvalid selection. Exiting.")
                     return
-            else:
-                # Only one device, means a known device was selected
-                target_address = devices[0][0]
         else:
             return
     elif not is_valid_mac_address(target_address):
         print("\nInvalid MAC address format. Please enter a valid MAC address.")
         return
+
     return target_address
 
 def restart_bluetooth_daemon():
@@ -33,7 +39,7 @@ def restart_bluetooth_daemon():
 
 def run(command):
     assert(isinstance(command, list))
-    log.debug("executing '%s'" % " ".join(command))
+    log.info("executing '%s'" % " ".join(command))
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return result
 
@@ -130,7 +136,6 @@ def main_menu():
     print(f"{separator}\n{title.center(len(separator))}\n{separator}")
     print("Remember, you can still attack devices without visibility...\nIf you have their MAC address")
     print(separator)
-
 
 def is_valid_mac_address(mac_address):
     # Regular expression to match a MAC address in the form XX:XX:XX:XX:XX:XX
