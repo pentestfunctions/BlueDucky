@@ -1,18 +1,69 @@
 import binascii
 import bluetooth
-import logging as log
 import sys
 import time
 from multiprocessing import Process
 from pydbus import SystemBus
 from enum import Enum
 import datetime
+import logging
 
 from utils.menu_functions import (main_menu, read_duckyscript, 
                                   run, restart_bluetooth_daemon, get_target_address)
 from utils.register_device import register_hid_profile, agent_loop
 
 child_processes = []
+
+# ANSI escape sequences for colors
+class AnsiColorCode:
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    MAGENTA = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+    RESET = '\033[0m'
+
+# Custom log level
+NOTICE_LEVEL = 25
+
+# Custom formatter class with added color for NOTICE
+class ColorLogFormatter(logging.Formatter):
+    COLOR_MAP = {
+        logging.DEBUG: AnsiColorCode.BLUE,
+        logging.INFO: AnsiColorCode.GREEN,
+        logging.WARNING: AnsiColorCode.YELLOW,
+        logging.ERROR: AnsiColorCode.RED,
+        logging.CRITICAL: AnsiColorCode.MAGENTA,
+        NOTICE_LEVEL: AnsiColorCode.CYAN,  # Color for NOTICE level
+    }
+
+    def format(self, record):
+        color = self.COLOR_MAP.get(record.levelno, AnsiColorCode.WHITE)
+        message = super().format(record)
+        return f'{color}{message}{AnsiColorCode.RESET}'
+
+
+# Method to add to the Logger class
+def notice(self, message, *args, **kwargs):
+    if self.isEnabledFor(NOTICE_LEVEL):
+        self._log(NOTICE_LEVEL, message, args, **kwargs)
+
+# Adding custom level and method to logging
+logging.addLevelName(NOTICE_LEVEL, "NOTICE")
+logging.Logger.notice = notice
+
+# Set up logging with color formatter and custom level
+def setup_logging():
+    log_format = "%(asctime)s - %(levelname)s - %(message)s"
+    formatter = ColorLogFormatter(log_format)
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+
+    # Set the logging level to INFO to filter out DEBUG messages
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
+
 
 class ConnectionFailureException(Exception):
     pass
@@ -212,7 +263,7 @@ class L2CAPClient:
 
     def connect(self, timeout=None):
         log.debug(f"Attempting to connect to {self.addr} on port {self.port}")
-        log.debug("connecting to %s on port %d" % (self.addr, self.port))
+        log.info("connecting to %s on port %d" % (self.addr, self.port))
         sock = bluetooth.BluetoothSocket(bluetooth.L2CAP)
         sock.settimeout(timeout)
         try:
@@ -273,6 +324,7 @@ def process_duckyscript(client, duckyscript, current_line=0, current_position=0)
                 current_position = 0  # Reset position for new line
 
             line = line.strip()
+            log.info(f"Processing {line}")
             if not line or line.startswith("REM"):
                 continue
             if line.startswith("TAB"):
@@ -312,6 +364,7 @@ def process_duckyscript(client, duckyscript, current_line=0, current_position=0)
             if line.startswith("STRING"):
                 text = line[7:]
                 for char_position, char in enumerate(text, start=1):
+                    log.notice(f"Attempting to send letter: {char}")
                     # Process each character
                     try:
                         if char.isdigit():
@@ -374,7 +427,7 @@ def process_duckyscript(client, duckyscript, current_line=0, current_position=0)
                         modifier_enum = getattr(Modifier_Codes, modifier.upper())
                         key_enum = getattr(Key_Codes, key.lower())
                         client.send_keyboard_combination(modifier_enum, key_enum)
-                        log.debug(f"Sent combination: {line}")
+                        log.notice(f"Sent combination: {line}")
                     except AttributeError:
                         log.warning(f"Unsupported combination: {line}")
                 else:
@@ -580,7 +633,6 @@ def setup_and_connect(connection_manager, target_address):
 
 # Main function
 def main():
-    log.basicConfig(level=log.DEBUG)
     main_menu()
     target_address = get_target_address()
     if not target_address:
@@ -616,6 +668,8 @@ def main():
     #process_duckyscript(hid_interrupt_client, duckyscript)
 
 if __name__ == "__main__":
+    setup_logging()
+    log = logging.getLogger(__name__)
     try:
         main()
     finally:
