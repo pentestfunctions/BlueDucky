@@ -7,7 +7,7 @@
 [This is an implementation of the CVE discovered by marcnewlin](https://github.com/marcnewlin/hi_my_name_is_keyboard)
 
 <p align="center">
-  <img src="./images/start.png">
+  <img src="./images/BlueDucky.gif">
 </p>
 
 ## Introduction 📢
