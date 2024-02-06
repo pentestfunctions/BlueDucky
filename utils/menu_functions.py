@@ -1,11 +1,5 @@
-import os
+import os, bluetooth,re, subprocess, time, curses
 import logging as log
-import bluetooth
-import re
-import subprocess
-import time
-import platform
-
 def get_target_address():
     target_address = input("\nWhat is the target address? Leave blank and we will scan for you: ")
 
@@ -89,6 +83,23 @@ def save_devices_to_file(devices, filename='known_devices.txt'):
         for addr, name in devices:
             file.write(f"{addr},{name}\n")
 
+def get_yes_no():
+    stdscr = curses.initscr()
+    curses.cbreak()
+    stdscr.keypad(1)
+
+    while True:
+        key = stdscr.getch()
+        if key == ord('y'):
+            response = 'yes'
+            break
+        elif key == ord('n'):
+            response = 'no'
+            break
+
+    curses.endwin()
+    return response
+
 # Function to scan for devices
 def scan_for_devices():
     main_menu()
@@ -109,13 +120,11 @@ def scan_for_devices():
     print("\nAttempting to scan now...")
     nearby_devices = bluetooth.discover_devices(duration=8, lookup_names=True, flush_cache=True, lookup_class=True)
     device_list = []
-
     if len(nearby_devices) == 0:
         print("\nNo nearby devices found.")
     else:
         print("\nFound {} nearby device(s):".format(len(nearby_devices)))
         for idx, (addr, name, _) in enumerate(nearby_devices):
-            print(f"{idx + 1}: Device Name: {name}, Address: {addr}")
             device_list.append((addr, name))
 
     # Save the scanned devices only if they are not already in known devices
@@ -123,6 +132,8 @@ def scan_for_devices():
     if new_devices:
         known_devices += new_devices
         save_devices_to_file(known_devices)
+        for idx, (addr, name) in enumerate(new_devices):
+            print(f"{idx + 1}: Device Name: {name}, Address: {addr}")
     return device_list
 
 def print_menu():

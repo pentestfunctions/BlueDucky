@@ -1,15 +1,9 @@
-import binascii
-import bluetooth
-import sys
-import time
+import binascii, bluetooth, sys, time, datetime, logging
 from multiprocessing import Process
 from pydbus import SystemBus
 from enum import Enum
-import datetime
-import logging
 
-from utils.menu_functions import (main_menu, read_duckyscript, 
-                                  run, restart_bluetooth_daemon, get_target_address)
+from utils.menu_functions import (main_menu, read_duckyscript, run, restart_bluetooth_daemon, get_target_address)
 from utils.register_device import register_hid_profile, agent_loop
 
 child_processes = []
