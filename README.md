@@ -1,6 +1,8 @@
 # BlueDucky (Android) 🦆
 
-Thanks to all the people at OWLSec.
+Thanks to all the people at OWLSec. Make sure you come join us on VC !
+https://discord.gg/owlsec
+
 1. [saad0x1's GitHub](https://github.com/saad0x1)
 2. [spicydll's GitHub](https://github.com/spicydll)
 
