@@ -1,0 +1,3 @@
+binascii==2.0  
+bluetooth==0.22  
+pydbus==0.7.4  
