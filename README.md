@@ -1,5 +1,9 @@
 # BlueDucky (Android) 🦆
 
+Thanks to all the people at OWLSec.
+1. [saad0x1's GitHub](https://github.com/saad0x1)
+2. [spicydll's GitHub](https://github.com/spicydll)
+
 <p align="center">
   <img src="./images/duckmenu.png">
 </p>
@@ -97,6 +101,7 @@ DELAY 300
 ```
 
 ## Enjoy experimenting with BlueDucky! 🌟
+
 
 
 
