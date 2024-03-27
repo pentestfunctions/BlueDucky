@@ -1,0 +1,5 @@
+dbus-python==1.3.2
+PyBluez==0.30
+pycairo==1.26.0
+pydbus==0.6.0
+PyGObject==3.48.1
