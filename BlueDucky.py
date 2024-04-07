@@ -2,6 +2,7 @@ import binascii, bluetooth, sys, time, datetime, logging, argparse
 from multiprocessing import Process
 from pydbus import SystemBus
 from enum import Enum
+import os
 
 from utils.menu_functions import (main_menu, read_duckyscript, run, restart_bluetooth_daemon, get_target_address)
 from utils.register_device import register_hid_profile, agent_loop
@@ -637,8 +638,31 @@ def main():
     if not target_address:
         log.info("No target address provided. Exiting.")
         return
+    
+    script_directory = os.path.dirname(os.path.realpath(__file__))
+    payload_folder = os.path.join(script_directory, 'payloads/')  # Specify the relative path to the payloads folder.
+    payloads = os.listdir(payload_folder)
 
-    duckyscript = read_duckyscript()
+    print("\nAvailable payloads:")
+    for idx, payload_file in enumerate(payloads, 1): # Check and enumerate the files inside the payload folder.
+        print(f"{idx}: {payload_file}")
+
+    payload_choice = input("\nEnter the number of the payload you want to load: ")
+    selected_payload = None
+
+    try:
+        payload_index = int(payload_choice) - 1
+        selected_payload = os.path.join(payload_folder, payloads[payload_index])
+    except (ValueError, IndexError):
+        print("Invalid payload choice. No payload selected.")
+
+    if selected_payload is not None:
+        print(f"Selected payload: {selected_payload}")
+        duckyscript = read_duckyscript(selected_payload)
+    else:
+        print("No payload selected.")
+
+    
     if not duckyscript:
         log.info("Payload file not found. Exiting.")
         return
