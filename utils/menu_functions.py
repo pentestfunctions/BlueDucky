@@ -9,7 +9,12 @@ def get_target_address():
             # Check if the returned list is from known devices or scanned devices
             if len(devices) == 1 and isinstance(devices[0], tuple) and len(devices[0]) == 2:
                 # A single known device was chosen, no need to ask for selection
-                target_address = devices[0][0]
+                # I think it would be better to ask, as sometimes I do not want to chose this device and actually need solely to scan for actual devices.
+                confirm = input(f"Would you like to enter this device :\n{devices[0][1]} {devices[0][0]} ? (y/n)\n").strip().lower()
+                if confirm == 'y' or confirm == 'yes':
+                    return devices[0][0]
+                elif confirm != 'y' or 'yes':
+                    return
             else:
                 # Show list of scanned devices for user selection
                 for idx, (addr, name) in enumerate(devices):
@@ -151,13 +156,14 @@ def main_menu():
     print_fancy_ascii_art()
     print_menu()
 
+
 def is_valid_mac_address(mac_address):
     # Regular expression to match a MAC address in the form XX:XX:XX:XX:XX:XX
     mac_address_pattern = re.compile(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$')
     return mac_address_pattern.match(mac_address) is not None
 
 # Function to read DuckyScript from file
-def read_duckyscript(filename='payload.txt'):
+def read_duckyscript(filename):
     if os.path.exists(filename):
         with open(filename, 'r') as file:
             return [line.strip() for line in file.readlines()]
