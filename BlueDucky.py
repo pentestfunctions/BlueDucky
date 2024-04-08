@@ -639,13 +639,22 @@ def main():
         log.info("No target address provided. Exiting.")
         return
     
+    def read_description_line(file_path):
+        with open(file_path, 'r') as file:
+            description_payload = file.readline().strip()  # Read the first line and remove trailing whitespaces.
+            if description_payload.startswith("REM ") : # Remove the REM for better readability.
+                description_payload = description_payload[4:]
+        return description_payload
+
     script_directory = os.path.dirname(os.path.realpath(__file__))
     payload_folder = os.path.join(script_directory, 'payloads/')  # Specify the relative path to the payloads folder.
     payloads = os.listdir(payload_folder)
 
     print("\nAvailable payloads:")
-    for idx, payload_file in enumerate(payloads, 1): # Check and enumerate the files inside the payload folder.
-        print(f"{idx}: {payload_file}")
+    for idx, payload_file in enumerate(payloads, 1): 
+        file_path = os.path.join(payload_folder, payload_file)
+        description_payload = read_description_line(file_path)
+        print(f"{idx}: {payload_file} - {description_payload}")
 
     payload_choice = input("\nEnter the number of the payload you want to load: ")
     selected_payload = None
