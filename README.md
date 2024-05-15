@@ -5,7 +5,7 @@ https://discord.gg/HackNexus
 
 1. [saad0x1's GitHub](https://github.com/saad0x1)
 2. [spicydll's GitHub](https://github.com/spicydll)
-3. [Lamentomori's GitHub](https://github.com/lamentomori)
+3. [lamentomori's GitHub](https://github.com/lamentomori)
 
 <p align="center">
   <img src="./images/duckmenu.png">
