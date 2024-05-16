@@ -695,7 +695,7 @@ def main():
     blue = "\033[0m"
     red = "\033[91m"
     reset = "\033[0m"
-    payload_choice = input(f"\n{blue}Enter the number that represents the payload you would like to load{white}: {blue}")
+    payload_choice = input(f"\n{blue}Enter the number that represents the payload you would like to load{reset}: {blue}")
     selected_payload = None
 
     try:
