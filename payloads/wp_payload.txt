@@ -1,4 +1,4 @@
-REM Opens a private browser to https://wa.me/<+number>
+REM Opens a browser to https://wa.me/<+number>
 DELAY 200
 ESCAPE
 GUI d
@@ -22,27 +22,27 @@ TAB
 ENTER
 DELAY 7000
 REM # Enter your message here
-STRING get clapped by *4ngel6uard*
+STRING get clapped by 4ngel6uard
 DELAY 500
 TAB
 TAB
 ENTER
 DELAY 2000
 REM # Enter your another message here
-STRING _https://t.me/<link>
+STRING hehehe
 DELAY 300
 TAB
 TAB
 ENTER
 DELAY 2000
 REM # Enter your another message here
-STRING xo xo
+STRING blueducky was there
 DELAY 300
 TAB
 TAB
 ENTER
 DELAY 2000
-REM # Enter your another message here
+REM # Enter your another message here (doesn't send, leaves in a box)
 STRING good luck =)
 
 
