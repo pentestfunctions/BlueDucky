@@ -3,6 +3,8 @@
 Thanks to all the people at HackNexus. Make sure you come join us on VC !
 https://discord.gg/HackNexus
 
+NOTES: I will not be able to run this on a laptop or other device outside of a raspberry pi for testing. Due to this, any issues you have will need to be resolved amonsgt each other as I do not have the spare funds to buy an adapter. 
+
 1. [saad0x1's GitHub](https://github.com/saad0x1)
 2. [spicydll's GitHub](https://github.com/spicydll)
 3. [lamentomori's GitHub](https://github.com/lamentomori)
