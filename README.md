@@ -34,7 +34,7 @@ I've successfully run this on a Raspberry Pi 4 using the default Bluetooth modul
 
 ## Installation and Usage 🛠️
 
-### Setup Instructions
+### Setup Instructions for Debian-based 
 
 ```bash
 # update apt
@@ -45,6 +45,29 @@ sudo apt-get -y upgrade
 sudo apt install -y bluez-tools bluez-hcidump libbluetooth-dev \
                     git gcc python3-pip python3-setuptools \
                     python3-pydbus
+
+# install pybluez from source
+git clone https://github.com/pybluez/pybluez.git
+cd pybluez
+sudo python3 setup.py install
+
+# build bdaddr from the bluez source
+cd ~/
+git clone --depth=1 https://github.com/bluez/bluez.git
+gcc -o bdaddr ~/bluez/tools/bdaddr.c ~/bluez/src/oui.c -I ~/bluez -lbluetooth
+sudo cp bdaddr /usr/local/bin/
+```
+### Setup Instructions for Arch-based 
+
+```bash
+# update pacman & packages
+sudo pacman -Syyu
+
+# install dependencies
+# since arch doesn't separate lib packages: libbluetooth-dev included in bluez package
+sudo pacman -S bluez-tools bluez-utils bluez-deprecated-tools \
+               python-setuptools python-pydbus python-dbus
+               git gcc python-pip \
 
 # install pybluez from source
 git clone https://github.com/pybluez/pybluez.git
