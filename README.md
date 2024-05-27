@@ -89,6 +89,12 @@ sudo hciconfig hci0 up
 python3 BlueDucky.py
 ```
 
+alternatively,
+
+```bash
+pip3 install -r requirements.txt
+```
+
 ## Operational Steps 🕹️
 1. On running, it prompts for the target MAC address.
 2. Pressing nothing triggers an automatic scan for devices.
