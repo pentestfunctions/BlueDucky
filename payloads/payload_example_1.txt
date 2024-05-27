@@ -1,0 +1,16 @@
+REM Opens a private browser to hackertyper.net
+DELAY 200
+ESCAPE
+GUI d
+ALT ESCAPE
+GUI b
+DELAY 700
+REM PRIVATE_BROWSER is equal to CTRL + SHIFT + N
+PRIVATE_BROWSER
+DELAY 700
+CTRL l
+DELAY 300
+STRING hackertyper.net
+DELAY 300
+ENTER
+DELAY 300

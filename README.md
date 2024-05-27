@@ -1,10 +1,13 @@
-# BlueDucky (Android) 🦆
+# BlueDucky Ver 2.1 (Android) 🦆
 
-Thanks to all the people at OWLSec. Make sure you come join us on VC !
-https://discord.gg/owlsec
+Thanks to all the people at HackNexus. Make sure you come join us on VC !
+https://discord.gg/HackNexus
+
+NOTES: I will not be able to run this on a laptop or other device outside of a raspberry pi for testing. Due to this, any issues you have will need to be resolved amonsgt each other as I do not have the spare funds to buy an adapter. 
 
 1. [saad0x1's GitHub](https://github.com/saad0x1)
 2. [spicydll's GitHub](https://github.com/spicydll)
+3. [lamentomori's GitHub](https://github.com/lamentomori)
 
 <p align="center">
   <img src="./images/duckmenu.png">
@@ -31,7 +34,7 @@ I've successfully run this on a Raspberry Pi 4 using the default Bluetooth modul
 
 ## Installation and Usage 🛠️
 
-### Setup Instructions
+### Setup Instructions for Debian-based 
 
 ```bash
 # update apt
@@ -54,6 +57,29 @@ git clone --depth=1 https://github.com/bluez/bluez.git
 gcc -o bdaddr ~/bluez/tools/bdaddr.c ~/bluez/src/oui.c -I ~/bluez -lbluetooth
 sudo cp bdaddr /usr/local/bin/
 ```
+### Setup Instructions for Arch-based 
+
+```bash
+# update pacman & packages
+sudo pacman -Syyu
+
+# install dependencies
+# since arch doesn't separate lib packages: libbluetooth-dev included in bluez package
+sudo pacman -S bluez-tools bluez-utils bluez-deprecated-tools \
+               python-setuptools python-pydbus python-dbus
+               git gcc python-pip \
+
+# install pybluez from source
+git clone https://github.com/pybluez/pybluez.git
+cd pybluez
+sudo python3 setup.py install
+
+# build bdaddr from the bluez source
+cd ~/
+git clone --depth=1 https://github.com/bluez/bluez.git
+gcc -o bdaddr ~/bluez/tools/bdaddr.c ~/bluez/src/oui.c -I ~/bluez -lbluetooth
+sudo cp bdaddr /usr/local/bin/
+```
 
 ## Running BlueDucky
 ```bash
@@ -61,6 +87,12 @@ git clone https://github.com/pentestfunctions/BlueDucky.git
 cd BlueDucky
 sudo hciconfig hci0 up
 python3 BlueDucky.py
+```
+
+alternatively,
+
+```bash
+pip3 install -r requirements.txt
 ```
 
 ## Operational Steps 🕹️
@@ -75,6 +107,15 @@ python3 BlueDucky.py
 🚧 Work in Progress:
 - Suggest me ideas
 
+## Version 2.1 🐛
+- Updated UI
+- Improved User Experience
+- Bluetooth Debugger; Checks your bluetooth adapters, and installed dependancies before allowing access to the application, this is to prevent devices that are not supported.
+- Please Note: Numerous Changes have been made,please reference the commit history for specific changes.
+  
+## What's Planned for the Next Release?
+- Integrated DuckyScript Console for attacks that want to maintain persistance, after a payload has been ran
+- Suggest What Should be added next! Join https://discord.gg/HackNexus
 
 #### 📝 Example payload.txt:
 ```bash

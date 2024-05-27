@@ -1,0 +1,48 @@
+REM Opens a browser to https://wa.me/<+number>
+DELAY 200
+ESCAPE
+GUI d
+ALT ESCAPE
+GUI b
+DELAY 700
+REM BROWSER is equal to CTRL + SHIFT + N
+BROWSER
+DELAY 700
+CTRL l
+DELAY 300
+STRING https://wa.me/<+NUMBER>
+DELAY 500
+ENTER
+DELAY 3000
+TAB
+TAB
+TAB
+TAB
+TAB
+ENTER
+DELAY 7000
+REM # Enter your message here
+STRING get clapped by 4ngel6uard
+DELAY 500
+TAB
+TAB
+ENTER
+DELAY 2000
+REM # Enter your another message here
+STRING hehehe
+DELAY 300
+TAB
+TAB
+ENTER
+DELAY 2000
+REM # Enter your another message here
+STRING blueducky was there
+DELAY 300
+TAB
+TAB
+ENTER
+DELAY 2000
+REM # Enter your another message here (doesn't send, leaves in a box)
+STRING good luck =)
+
+
