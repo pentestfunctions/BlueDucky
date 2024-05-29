@@ -28,21 +28,54 @@ TAB
 TAB
 ENTER
 DELAY 2000
-REM # Enter your another message here
+REM # Enter another message
 STRING hehehe
 DELAY 300
 TAB
 TAB
 ENTER
 DELAY 2000
-REM # Enter your another message here
+REM # Enter another message
 STRING blueducky was there
 DELAY 300
 TAB
 TAB
 ENTER
 DELAY 2000
-REM # Enter your another message here (doesn't send, leaves in a box)
+REM # Enter another message
 STRING good luck =)
-
-
+DELAY 300
+TAB
+TAB
+ENTER
+DELAY 2000
+REM # Enter another message
+STRING surprise visit incoming
+DELAY 300
+TAB
+TAB
+ENTER
+DELAY 2000
+REM # Enter another message
+STRING guess who?
+DELAY 300
+TAB
+TAB
+ENTER
+DELAY 2000
+REM # Enter another message
+STRING watch your six
+DELAY 300
+TAB
+TAB
+ENTER
+DELAY 2000
+REM # Enter another message
+STRING mission complete
+DELAY 300
+TAB
+TAB
+ENTER
+DELAY 2000
+REM # Final message (doesn't send, leaves in a box)
+STRING see you soon =)
