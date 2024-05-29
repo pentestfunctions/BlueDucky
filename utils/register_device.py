@@ -4,44 +4,65 @@ import dbus.mainloop.glib
 from gi.repository import GLib
 import logging as log
 
+log.basicConfig(level=log.DEBUG)
+
 class Agent(dbus.service.Object):
-  @dbus.service.method("org.bluez.Agent1", in_signature="", out_signature="")
-  def Cancel(self):
-    log.debug("Agent.Cancel")
+    def __init__(self, bus, path, target_path):
+        super().__init__(bus, path)
+        self.target_path = target_path
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="", out_signature="")
+    def Cancel(self):
+        log.debug("Agent.Cancel")
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="os", out_signature="")
+    def RequestPinCode(self, device):
+        log.debug(f"RequestPinCode ({device})")
+        return "0000"
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="u")
+    def RequestPasskey(self, device):
+        log.debug(f"RequestPasskey ({device})")
+        return dbus.UInt32(0)
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="ou", out_signature="")
+    def DisplayPasskey(self, device, passkey):
+        log.debug(f"DisplayPasskey ({device}, {passkey})")
 
 class Profile(dbus.service.Object):
-  @dbus.service.method("org.bluez.Profile1", in_signature="", out_signature="")
-  def Cancel(self):
-    print("Profile.Cancel")
+    @dbus.service.method("org.bluez.Profile1", in_signature="", out_signature="")
+    def Cancel(self):
+        log.debug("Profile.Cancel")
 
 def agent_loop(target_path):
-  dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-  loop = GLib.MainLoop()
-  bus = dbus.SystemBus()
-  path = "/test/agent"
-  agent = Agent(bus, path)
-  agent.target_path = target_path
-  obj = bus.get_object("org.bluez", "/org/bluez")
-  manager = dbus.Interface(obj, "org.bluez.AgentManager1")
-  manager.RegisterAgent(path, "NoInputNoOutput")
-  manager.RequestDefaultAgent(path)
-  log.debug("'NoInputNoOutput' pairing-agent is running")
-  loop.run()
-
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    loop = GLib.MainLoop()
+    bus = dbus.SystemBus()
+    path = "/test/agent"
+    agent = Agent(bus, path, target_path)
+    obj = bus.get_object("org.bluez", "/org/bluez")
+    manager = dbus.Interface(obj, "org.bluez.AgentManager1")
+    manager.RegisterAgent(path, "NoInputNoOutput")
+    manager.RequestDefaultAgent(path)
+    log.debug("'NoInputNoOutput' pairing-agent is running")
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        log.debug("Stopping agent loop")
+        loop.quit()
 
 def register_hid_profile(iface, addr):
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
     get_obj = lambda path, iface: dbus.Interface(bus.get_object("org.bluez", path), iface)
     addr_str = addr.replace(":", "_")
-    path = "/org/bluez/%s/dev_%s" % (iface, addr_str)
+    path = f"/org/bluez/{iface}/dev_{addr_str}"
     manager = get_obj("/org/bluez", "org.bluez.ProfileManager1")
     profile_path = "/test/profile"
     profile = Profile(bus, profile_path)
     hid_uuid = "00001124-0000-1000-8000-00805F9B34FB"
     
-    # Hardcoded XML content
-    xml_content = """<?xml version="1.0" encoding="UTF-8" ?>
+    xml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <record>
 
 	<!-- ServiceRecordHandle -->
@@ -215,12 +236,29 @@ def register_hid_profile(iface, addr):
 </record>"""
 
     opts = {"ServiceRecord": xml_content}
-    log.debug("calling RegisterProfile")
-    manager.RegisterProfile(profile, hid_uuid, opts)
+    log.debug("Calling RegisterProfile")
+    manager.RegisterProfile(profile_path, hid_uuid, opts)
     loop = GLib.MainLoop()
     try:
-        log.debug("running dbus loop")
+        log.debug("Running dbus loop")
         loop.run()
     except KeyboardInterrupt:
-        log.debug("calling UnregisterProfile")
-        manager.UnregisterProfile(profile)
+        log.debug("Calling UnregisterProfile")
+        manager.UnregisterProfile(profile_path)
+
+def list_bluetooth_devices():
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    bus = dbus.SystemBus()
+    adapter = dbus.Interface(bus.get_object("org.bluez", "/org/bluez/hci0"), "org.bluez.Adapter1")
+    devices = adapter.GetManagedObjects()
+    for path, ifaces in devices.items():
+        if "org.bluez.Device1" in ifaces:
+            log.info(f"Device: {ifaces['org.bluez.Device1']['Name']} at {ifaces['org.bluez.Device1']['Address']}")
+
+if __name__ == "__main__":
+    target_path = "/some/target/path"
+    list_bluetooth_devices()
+    agent_loop(target_path)
+    iface = "hci0"
+    addr = "XX:XX:XX:XX:XX:XX"
+    register_hid_profile(iface, addr)
