@@ -1,6 +1,5 @@
-# BlueDucky Ver 2.1 (Android) 🦆
-
-Thanks to all the people at HackNexus. Make sure you come join us on VC !
+# BlueDucky Version 2.1 (for Android) 🦆
+exus. Make sure you come join us on VC !
 https://discord.gg/HackNexus
 
 NOTES: I will not be able to run this on a laptop or other device outside of a raspberry pi for testing. Due to this, any issues you have will need to be resolved amonsgt each other as I do not have the spare funds to buy an adapter. 
@@ -24,57 +23,60 @@ NOTES: I will not be able to run this on a laptop or other device outside of a r
 </p>
 
 ## Introduction 📢
-BlueDucky is a powerful tool for exploiting a vulnerability in Bluetooth devices. By running this script, you can:
 
-1. 📡 Load saved Bluetooth devices that are no longer visible but have Bluetooth still enabled.
-2. 📂 Automatically save any devices you scan.
-3. 💌 Send messages via ducky script format to interact with devices.
+BlueDucky is an advanced tool designed to exploit vulnerabilities in Bluetooth devices. By leveraging this script, users can:
 
-I've successfully run this on a Raspberry Pi 4 using the default Bluetooth module. It works against various phones, with an interesting exception for a New Zealand brand, Vodafone.
+1. 📡 Load saved Bluetooth devices that are no longer visible but still have Bluetooth enabled.
+2. 📂 Automatically save any scanned devices.
+3. 💌 Send messages in DuckyScript format to interact with devices.
+
+This script has been successfully tested on a Raspberry Pi 4 using the default Bluetooth module. It is effective against various phones, with the exception of New Zealand brand, Vodafone.
 
 ## Installation and Usage 🛠️
 
-### Setup Instructions for Debian-based 
+### Setup Instructions for Debian-based Systems
 
 ```bash
-# update apt
+# Update apt
 sudo apt-get update
 sudo apt-get -y upgrade
 
-# install dependencies from apt
+# Install dependencies from apt
 sudo apt install -y bluez-tools bluez-hcidump libbluetooth-dev \
                     git gcc python3-pip python3-setuptools \
                     python3-pydbus
 
-# install pybluez from source
+# Install pybluez from source
 git clone https://github.com/pybluez/pybluez.git
 cd pybluez
 sudo python3 setup.py install
 
-# build bdaddr from the bluez source
+# Build bdaddr from the bluez source
 cd ~/
 git clone --depth=1 https://github.com/bluez/bluez.git
 gcc -o bdaddr ~/bluez/tools/bdaddr.c ~/bluez/src/oui.c -I ~/bluez -lbluetooth
 sudo cp bdaddr /usr/local/bin/
 ```
-### Setup Instructions for Arch-based 
+
+
+### Setup Instructions for Arch-based Systems
 
 ```bash
-# update pacman & packages
+# Update pacman & packages
 sudo pacman -Syyu
 
-# install dependencies
-# since arch doesn't separate lib packages: libbluetooth-dev included in bluez package
+# Install dependencies
+# Note: libbluetooth-dev included in bluez package for Arch-based systems
 sudo pacman -S bluez-tools bluez-utils bluez-deprecated-tools \
-               python-setuptools python-pydbus python-dbus
+               python-setuptools python-pydbus python-dbus \
                git gcc python-pip \
 
-# install pybluez from source
+# Install pybluez from source
 git clone https://github.com/pybluez/pybluez.git
 cd pybluez
 sudo python3 setup.py install
 
-# build bdaddr from the bluez source
+# Build bdaddr from the bluez source
 cd ~/
 git clone --depth=1 https://github.com/bluez/bluez.git
 gcc -o bdaddr ~/bluez/tools/bdaddr.c ~/bluez/src/oui.c -I ~/bluez -lbluetooth
@@ -82,42 +84,47 @@ sudo cp bdaddr /usr/local/bin/
 ```
 
 ## Running BlueDucky
+
 ```bash
 git clone https://github.com/pentestfunctions/BlueDucky.git
 cd BlueDucky
 sudo hciconfig hci0 up
 python3 BlueDucky.py
 ```
+Alternatively,
 
-alternatively,
-
-```bash
+```python3
 pip3 install -r requirements.txt
 ```
 
 ## Operational Steps 🕹️
-1. On running, it prompts for the target MAC address.
+
+1. Upon execution, it prompts for the target MAC address.
 2. Pressing nothing triggers an automatic scan for devices.
-3. Devices previously found are stored in known_devices.txt.
+3. Previously found devices are stored in known_devices.txt.
 4. If known_devices.txt exists, it checks this file before scanning.
 5. Executes using payload.txt file.
-6. Successful execution will result in automatic connection and script running.
+6. Successful execution results in automatic connection and script running.
 
-## Duckyscript 💻
+## DuckyScript 💻
+
 🚧 Work in Progress:
-- Suggest me ideas
+- Suggest ideas for improvement
 
 ## Version 2.1 🐛
+
 - Updated UI
 - Improved User Experience
-- Bluetooth Debugger; Checks your bluetooth adapters, and installed dependancies before allowing access to the application, this is to prevent devices that are not supported.
-- Please Note: Numerous Changes have been made,please reference the commit history for specific changes.
-  
-## What's Planned for the Next Release?
-- Integrated DuckyScript Console for attacks that want to maintain persistance, after a payload has been ran
-- Suggest What Should be added next! Join https://discord.gg/HackNexus
+- Bluetooth Debugger; Checks your Bluetooth adapters and installed dependencies before granting access to the application to prevent unsupported devices.
+- Please Note: Numerous changes have been made; please reference the commit history for specific changes.
 
-#### 📝 Example payload.txt:
+## What's Planned for the Next Release?
+
+- Integrated DuckyScript Console for attacks that aim to maintain persistence after a payload has been executed.
+- Suggest what should be added next! Join [HackNexus Discord Server](https://discord.gg/HackNexus)
+
+### 📝 Example payload.txt:
+
 ```bash
 REM Title of the payload
 STRING ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890!@#$%^&*()_-=+\|[{]};:'",<.>/?
@@ -144,10 +151,3 @@ DELAY 300
 ```
 
 ## Enjoy experimenting with BlueDucky! 🌟
-
-
-
-
-
-
-
