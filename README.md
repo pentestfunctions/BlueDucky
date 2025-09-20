@@ -85,9 +85,23 @@ sudo cp bdaddr /usr/local/bin/
 ```bash
 git clone https://github.com/pentestfunctions/BlueDucky.git
 cd BlueDucky
+# For systems with hciconfig (legacy)
 sudo hciconfig hci0 up
+# OR for systems with btmgmt (modern)
+sudo btmgmt -i hci0 power on
 python3 BlueDucky.py
 ```
+
+**Note:** BlueDucky automatically detects and uses the appropriate Bluetooth management tool (hciconfig or btmgmt) available on your system.
+
+## Bluetooth Tool Compatibility 🔧
+
+BlueDucky supports both legacy and modern Bluetooth management tools:
+
+- **hciconfig** (legacy): Traditional BlueZ tool, commonly found on older systems
+- **btmgmt** (modern): Newer BlueZ management tool, found on recent distributions
+
+The tool automatically detects which command is available and uses the appropriate one. If both are available, it prioritizes hciconfig for backward compatibility.
 
 alternatively,
 
