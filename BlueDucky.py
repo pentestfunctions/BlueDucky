@@ -3,7 +3,10 @@ from multiprocessing import Process
 from pydbus import SystemBus
 from enum import Enum
 import subprocess
+import logging
 import os
+
+log = logging.getLogger(__name__)
 
 from utils.menu_functions import (main_menu, read_duckyscript, run, restart_bluetooth_daemon, get_target_address)
 from utils.register_device import register_hid_profile, agent_loop
@@ -23,6 +26,31 @@ class AnsiColorCode:
 NOTICE_LEVEL = 25
 
 # Custom formatter class with added color for NOTICE
+
+# Bluetooth Adapter Checking For Error 
+class BluetoothAdapter:
+    def __init__(self, iface):
+        self.iface = iface
+
+    def enable_ssp(self):
+        try:
+            ssp_command = ["sudo", "hciconfig", self.iface, "sspmode", "1"]
+            ssp_result = subprocess.run(ssp_command, capture_output=True, text=True)
+            if ssp_result.returncode != 0:
+                log.error(f"Failed to enable SSP: {ssp_result.stderr}")
+                raise ConnectionFailureException("Failed to enable SSP")
+            else:
+                log.info(f"SSP enabled successfully: {ssp_result.stdout}")
+        except Exception as e:
+            log.error(f"Error enabling SSP: {e}")
+            raise
+
+class ConnectionFailureException(Exception):
+    pass
+
+# Example usage
+adapter = BluetoothAdapter("hci0")
+adapter.enable_ssp()
 class ColorLogFormatter(logging.Formatter):
     COLOR_MAP = {
         logging.DEBUG: AnsiColorCode.BLUE,
