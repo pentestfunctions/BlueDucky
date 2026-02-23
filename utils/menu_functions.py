@@ -1,15 +1,15 @@
 import os, bluetooth, re, subprocess, time, curses
 import logging as log
 
+from utils.color import color
+
 ##########################
 # UI Redesign by Lamento #
 ##########################
 
 def get_target_address():
-    blue = "\033[94m"
-    reset = "\033[0m"
-    print(f"\n What is the target address{blue}? {reset}Leave blank and we will scan for you{blue}!{reset}")
-    target_address = input(f"\n {blue}> ")
+    print(f"\n What is the target address{color.BLUE}? {color.RESET}Leave blank and we will scan for you{color.BLUE}!{color.RESET}")
+    target_address = input(f"\n {color.BLUE}> ")
 
     if target_address == "":
         devices = scan_for_devices()
@@ -18,7 +18,7 @@ def get_target_address():
             if len(devices) == 1 and isinstance(devices[0], tuple) and len(devices[0]) == 2:
                 # A single known device was chosen, no need to ask for selection
                 # I think it would be better to ask, as sometimes I do not want to chose this device and actually need solely to scan for actual devices.
-                confirm = input(f"\n Would you like to register this device{blue}:\n{reset}{devices[0][1]} {devices[0][0]}{blue}? {blue}({reset}y{blue}/{reset}n{blue}) {blue}").strip().lower()
+                confirm = input(f"\n Would you like to register this device{color.BLUE}:\n{color.RESET}{devices[0][1]} {devices[0][0]}{color.BLUE}? {color.BLUE}({color.RESET}y{color.BLUE}/{color.RESET}n{color.BLUE}) {color.BLUE}").strip().lower()
                 if confirm == 'y' or confirm == 'yes':
                     return devices[0][0]
                 elif confirm != 'y' or 'yes':
@@ -26,8 +26,8 @@ def get_target_address():
             else:
                 # Show list of scanned devices for user selection
                 for idx, (addr, name) in enumerate(devices):
-                    print(f"{reset}[{blue}{idx + 1}{reset}] {blue}Device Name{reset}: {blue}{name}, {blue}Address{reset}: {blue}{addr}")
-                selection = int(input(f"\n{reset}Select a device by number{blue}: {blue}")) - 1
+                    print(f"{color.RESET}[{color.BLUE}{idx + 1}{color.RESET}] {color.BLUE}Device Name{color.RESET}: {color.BLUE}{name}, {color.BLUE}Address{color.RESET}: {color.BLUE}{addr}")
+                selection = int(input(f"\n{color.RESET}Select a device by number{color.BLUE}: {color.BLUE}")) - 1
                 if 0 <= selection < len(devices):
                     target_address = devices[selection][0]
                 else:
@@ -92,40 +92,24 @@ def save_devices_to_file(devices, filename='known_devices.txt'):
 def scan_for_devices():
     main_menu()
 
-    blue = "\033[94m"
-    error = "\033[91m"
-    reset = "\033[0m"
-
     # Load known devices
     known_devices = load_known_devices()
     if known_devices:
-        blue = "\033[94m"
-        error = "\033[91m"
-        reset = "\033[0m"
-        print(f"\n{reset}Known devices{blue}:")
+        print(f"\n{color.RESET}Known devices{color.BLUE}:")
         for idx, (addr, name) in enumerate(known_devices):
-            blue = "\033[94m"
-            error = "\033[91m"
-            reset = "\033[0m"
-            print(f"{blue}{idx + 1}{reset}: Device Name: {blue}{name}, Address: {blue}{addr}")
+            print(f"{color.BLUE}{idx + 1}{color.RESET}: Device Name: {color.BLUE}{name}, Address: {color.BLUE}{addr}")
 
-        blue = "\033[94m"
-        error = "\033[91m"
-        reset = "\033[0m"
-        use_known_device = input(f"\n{reset}Do you want to use one of these known devices{blue}? {blue}({reset}yes{blue}/{reset}no{blue}): ")
+        use_known_device = input(f"\n{color.RESET}Do you want to use one of these known devices{color.BLUE}? {color.BLUE}({color.RESET}yes{color.BLUE}/{color.RESET}no{color.BLUE}): ")
         if use_known_device.lower() == 'yes':
-            device_choice = int(input(f"{reset}Enter the index number of the device to attack{blue}: "))
+            device_choice = int(input(f"{color.RESET}Enter the index number of the device to attack{color.BLUE}: "))
             return [known_devices[device_choice - 1]]
 
     # Normal Bluetooth scan
-    blue = "\033[94m"
-    error = "\033[91m"
-    reset = "\033[0m"
-    print(f"\n{reset}Attempting to scan now{blue}...")
+    print(f"\n{color.RESET}Attempting to scan now{color.BLUE}...")
     nearby_devices = bluetooth.discover_devices(duration=8, lookup_names=True, flush_cache=True, lookup_class=True)
     device_list = []
     if len(nearby_devices) == 0:
-        print(f"\n{reset}[{error}+{reset}] No nearby devices found.")
+        print(f"\n{color.RESET}[{error}+{color.RESET}] No nearby devices found.")
     else:
         print("\nFound {} nearby device(s):".format(len(nearby_devices)))
         for idx, (addr, name, _) in enumerate(nearby_devices):
@@ -137,7 +121,7 @@ def scan_for_devices():
         known_devices += new_devices
         save_devices_to_file(known_devices)
         for idx, (addr, name) in enumerate(new_devices):
-            print(f"{reset}{idx + 1}{blue}: {blue}Device Name{reset}: {blue}{name}{reset}, {blue}Address{reset}: {blue}{addr}")
+            print(f"{color.RESET}{idx + 1}{color.BLUE}: {color.BLUE}Device Name{color.RESET}: {color.BLUE}{name}{color.RESET}, {color.BLUE}Address{color.RESET}: {color.BLUE}{addr}")
     return device_list
 
 def getterm():
@@ -146,8 +130,6 @@ def getterm():
 
 
 def print_menu():
-    blue = '\033[94m'
-    reset = "\033[0m"
     title = "BlueDucky - Bluetooth Device Attacker"
     vertext = "Ver 2.1"
     motd1 = f"Remember, you can still attack devices without visibility.."
@@ -155,13 +137,13 @@ def print_menu():
     terminal_width = getterm()
     separator = "=" * terminal_width
 
-    print(blue + separator)  # Blue color for separator
-    print(reset + title.center(len(separator)))  # Centered Title in blue
-    print(blue + vertext.center(len(separator)))  # Centered Version
-    print(blue + separator + reset)  # Blue color for separator
+    print(color.BLUE + separator)  # Blue color for separator
+    print(color.RESET + title.center(len(separator)))  # Centered Title in blue
+    print(color.BLUE + vertext.center(len(separator)))  # Centered Version
+    print(color.BLUE + separator + color.RESET)  # Blue color for separator
     print(motd1.center(len(separator)))# used the same method for centering
     print(motd2.center(len(separator)))# used the same method for centering
-    print(blue + separator + reset)  # Blue color for separator
+    print(color.BLUE + separator + color.RESET)  # Blue color for separator
 
 def main_menu():
     clear_screen()
@@ -196,13 +178,11 @@ title = "BlueDucky - Bluetooth Device Attacker"
 vertext = "Ver 2.1"
 terminal_width = getterm()
 separator = "=" * terminal_width
-blue = "\033[0m"
-reset = "\033[0m"
 
-print(blue + separator)  # Blue color for separator
-print(reset + title.center(len(separator)))  # White color for title
-print(blue + vertext.center(len(separator)))  # White blue for version number
-print(blue + separator + reset)  # Blue color for separator
-print(f"{reset}Remember, you can still attack devices without visibility{blue}.." + reset)
-print(f"{blue}If you have their {reset}MAC address{blue}.." + reset)
-print(blue + separator + reset)  # Blue color for separator
+print(color.BLUE + separator)  # Blue color for separator
+print(color.RESET + title.center(len(separator)))  # White color for title
+print(color.BLUE + vertext.center(len(separator)))  # White blue for version number
+print(color.BLUE + separator + color.RESET)  # Blue color for separator
+print(f"{color.RESET}Remember, you can still attack devices without visibility{color.BLUE}.." + color.RESET)
+print(f"{color.BLUE}If you have their {color.RESET}MAC address{color.BLUE}.." + color.RESET)
+print(color.BLUE + separator + color.RESET)  # Blue color for separator

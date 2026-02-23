@@ -5,19 +5,12 @@ from enum import Enum
 import subprocess
 import os
 
+
+from utils.color import color
 from utils.menu_functions import (main_menu, read_duckyscript, run, restart_bluetooth_daemon, get_target_address)
 from utils.register_device import register_hid_profile, agent_loop
 
 child_processes = []
-
-# ANSI escape sequences for colors
-class AnsiColorCode:
-    RED = '\033[91m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
-    WHITE = '\033[97m'
-    RESET = '\033[0m'
 
 # Custom log level
 NOTICE_LEVEL = 25
@@ -25,18 +18,18 @@ NOTICE_LEVEL = 25
 # Custom formatter class with added color for NOTICE
 class ColorLogFormatter(logging.Formatter):
     COLOR_MAP = {
-        logging.DEBUG: AnsiColorCode.BLUE,
-        logging.INFO: AnsiColorCode.GREEN,
-        logging.WARNING: AnsiColorCode.YELLOW,
-        logging.ERROR: AnsiColorCode.RED,
-        logging.CRITICAL: AnsiColorCode.RED,
-        NOTICE_LEVEL: AnsiColorCode.BLUE,  # Color for NOTICE level
+        logging.DEBUG: color.BLUE,
+        logging.INFO: color.GREEN,
+        logging.WARNING: color.YELLOW,
+        logging.ERROR: color.RED,
+        logging.CRITICAL: color.RED,
+        NOTICE_LEVEL: color.BLUE,  # Color for NOTICE level
     }
 
     def format(self, record):
-        color = self.COLOR_MAP.get(record.levelno, AnsiColorCode.WHITE)
+        fmt_color = self.COLOR_MAP.get(record.levelno, color.WHITE)
         message = super().format(record)
-        return f'{color}{message}{AnsiColorCode.RESET}'
+        return f'{fmt_color}{message}{color.RESET}'
 
 
 # Method to add to the Logger class
@@ -58,6 +51,8 @@ def setup_logging():
     # Set the logging level to INFO to filter out DEBUG messages
     logging.basicConfig(level=logging.INFO, handlers=[handler])
 
+def print_error(msg):
+    print(f"{color.RESET}[{color.RED}!{color.RESET}] {color.RED}CRITICAL ERROR{color.RESET}:{color.RESET}", msg)
 
 class ConnectionFailureException(Exception):
     pass
@@ -267,20 +262,13 @@ class L2CAPClient:
             self.connected = True
             log.debug("SUCCESS! connected on port %d" % self.port)
         except Exception as ex:
-            # Color Definition Again just to avoid errors I should've made a class for this.
-            red = "\033[91m"
-            blue = "\033[94m"
-            reset = "\033[0m"
-
             error = True
             self.connected = False
             log.error("ERROR connecting on port %d: %s" % (self.port, ex))
-            raise ConnectionFailureException(f"Connection failure on port {self.port}")
             if (error == True & self.port == 14):
-                print("{reset}[{red}!{reset}] {red}CRITICAL ERROR{reset}: {reset}Attempted Connection to {red}{target_address} {reset}was {red}denied{reset}.")
+                print_error(f"{color.RESET}Attempted Connection to {color.RED}{target_address} {color.RESET}was {color.RED}denied{color.RESET}.")
                 return self.connected
-
-
+            raise ConnectionFailureException(f"Connection failure on port {self.port}")
 
         return self.connected
 
@@ -640,36 +628,28 @@ def setup_and_connect(connection_manager, target_address, adapter_id):
 def troubleshoot_bluetooth():
     # Added this function to troubleshoot common issues before access to the application is granted
 
-    blue = "\033[0m"
-    red = "\033[91m"
-    reset = "\033[0m"
     # Check if bluetoothctl is available
     try:
         subprocess.run(['bluetoothctl', '--version'], check=True, stdout=subprocess.PIPE)
     except subprocess.CalledProcessError:
-        print("{reset}[{red}!{reset}] {red}CRITICAL{reset}: {blue}bluetoothctl {reset}is not installed or not working properly.")
+        print_error(f"{color.BLUE}bluetoothctl {color.RESET}is not installed or not working properly.")
         return False
 
     # Check for Bluetooth adapters
     result = subprocess.run(['bluetoothctl', 'list'], capture_output=True, text=True)
     if "Controller" not in result.stdout:
-        print("{reset}[{red}!{reset}] {red}CRITICAL{reset}: No {blue}Bluetooth adapters{reset} have been detected.")
+        print_error(f"No {color.BLUE}Bluetooth adapters{color.RESET} have been detected.")
         return False
 
     # List devices to see if any are connected
     result = subprocess.run(['bluetoothctl', 'devices'], capture_output=True, text=True)
     if "Device" not in result.stdout:
-        print("{reset}[{red}!{reset}] {red}CRITICAL{reset}: No Compatible {blue}Bluetooth devices{reset} are connected.")
-        return False
+        log.warning(f"{color.RESET}Your {color.BLUE}Bluetooth devices{color.RESET} might not be supported.")
 
-    # if no issues are found then continue
     return True
 
 # Main function
 def main():
-    blue = "\033[0m"
-    red = "\033[91m"
-    reset = "\033[0m"
     parser = argparse.ArgumentParser(description="Bluetooth HID Attack Tool")
     parser.add_argument('--adapter', type=str, default='hci0', help='Specify the Bluetooth adapter to use (default: hci0)')
     args = parser.parse_args()
@@ -685,17 +665,11 @@ def main():
     payload_folder = os.path.join(script_directory, 'payloads/')  # Specify the relative path to the payloads folder.
     payloads = os.listdir(payload_folder)
 
-    blue = "\033[0m"
-    red = "\033[91m"
-    reset = "\033[0m"
-    print(f"\nAvailable payloads{blue}:")
+    print(f"\nAvailable payloads{color.BLUE}:")
     for idx, payload_file in enumerate(payloads, 1): # Check and enumerate the files inside the payload folder.
-        print(f"{reset}[{blue}{idx}{reset}]{blue}: {blue}{payload_file}")
+        print(f"{color.RESET}[{color.BLUE}{idx}{color.RESET}]{color.BLUE}: {color.BLUE}{payload_file}")
 
-    blue = "\033[0m"
-    red = "\033[91m"
-    reset = "\033[0m"
-    payload_choice = input(f"\n{blue}Enter the number that represents the payload you would like to load{reset}: {blue}")
+    payload_choice = input(f"\n{color.BLUE}Enter the number that represents the payload you would like to load{color.RESET}: {color.BLUE}")
     selected_payload = None
 
     try:
@@ -705,10 +679,10 @@ def main():
         print(f"Invalid payload choice. No payload selected.")
 
     if selected_payload is not None:
-        print(f"{blue}Selected payload{reset}: {blue}{selected_payload}")
+        print(f"{color.BLUE}Selected payload{color.RESET}: {color.BLUE}{selected_payload}")
         duckyscript = read_duckyscript(selected_payload)
     else:
-        print(f"{red}No payload selected.")
+        print(f"{color.RED}No payload selected.")
 
 
     
@@ -731,7 +705,7 @@ def main():
             break  # Exit loop if successful
 
         except ReconnectionRequiredException as e:
-            log.info(f"{reset}Reconnection required. Attempting to reconnect{blue}...")
+            log.info(f"{color.RESET}Reconnection required. Attempting to reconnect{color.BLUE}...")
             current_line = e.current_line
             current_position = e.current_position
             connection_manager.close_all()
@@ -740,12 +714,10 @@ def main():
 
         finally:
             # unpair the target device
-            blue = "\033[94m"
-            reset = "\033[0m"
 
-            command = f'echo -e "remove {target_address}\n" | bluetoothctl'
+            command = f'echo -e "\nremove {target_address}\n" | bluetoothctl'
             subprocess.run(command, shell=True)
-            print(f"{blue}Successfully Removed device{reset}: {blue}{target_address}{reset}")
+            print(f"{color.BLUE}Successfully Removed device{color.RESET}: {color.BLUE}{target_address}{color.RESET}")
 
 if __name__ == "__main__":
     setup_logging()
