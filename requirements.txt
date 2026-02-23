@@ -5,4 +5,4 @@ pydbus==0.6.0
 PyGObject==3.48.1
 pyobjc
 pybluez
-setuptools==57.5.0
+setuptools==78.1.1
