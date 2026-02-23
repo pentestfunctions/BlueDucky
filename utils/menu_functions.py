@@ -8,36 +8,44 @@ import logging as log
 def get_target_address():
     blue = "\033[94m"
     reset = "\033[0m"
-    print(f"\n What is the target address{blue}? {reset}Leave blank and we will scan for you{blue}!{reset}")
-    target_address = input(f"\n {blue}> ")
+    prompt = f"{blue}?{reset} Leave blank and we will scan for you{blue}!{reset}"
 
-    if target_address == "":
+    print(f"\nWhat is the target address{prompt}")
+    target_address = input(f"\n{blue}> {reset}").strip()
+
+    if not target_address:
         devices = scan_for_devices()
-        if devices:
-            # Check if the returned list is from known devices or scanned devices
-            if len(devices) == 1 and isinstance(devices[0], tuple) and len(devices[0]) == 2:
-                # A single known device was chosen, no need to ask for selection
-                # I think it would be better to ask, as sometimes I do not want to chose this device and actually need solely to scan for actual devices.
-                confirm = input(f"\n Would you like to register this device{blue}:\n{reset}{devices[0][1]} {devices[0][0]}{blue}? {blue}({reset}y{blue}/{reset}n{blue}) {blue}").strip().lower()
-                if confirm == 'y' or confirm == 'yes':
-                    return devices[0][0]
-                elif confirm != 'y' or 'yes':
-                    return
+        if not devices:
+            return
+
+        if len(devices) == 1 and isinstance(devices[0], tuple) and len(devices[0]) == 2:
+            addr, name = devices[0]
+            confirm = input(
+                f"\nWould you like to register this device{blue}:\n{reset}{name} {addr}{blue}? {reset}(y/n){blue} "
+            ).strip().lower()
+            if confirm in {'y', 'yes'}:
+                return addr
             else:
-                # Show list of scanned devices for user selection
-                for idx, (addr, name) in enumerate(devices):
-                    print(f"{reset}[{blue}{idx + 1}{reset}] {blue}Device Name{reset}: {blue}{name}, {blue}Address{reset}: {blue}{addr}")
-                selection = int(input(f"\n{reset}Select a device by number{blue}: {blue}")) - 1
-                if 0 <= selection < len(devices):
-                    target_address = devices[selection][0]
-                else:
-                    print("\nInvalid selection. Exiting.")
-                    return
-        else:
+                return get_target_address()  # Rescan if the user doesn't confirm
+
+        # Show list of scanned devices for user selection
+        print("\nAvailable devices:")
+        for idx, (addr, name) in enumerate(devices, 1):
+            print(f"{reset}[{blue}{idx}{reset}] {blue}Device Name{reset}: {blue}{name}, Address{reset}: {blue}{addr}")
+
+        try:
+            selection = int(input(f"\n{reset}Select a device by number{blue}: {reset}")) - 1
+            if 0 <= selection < len(devices):
+                target_address = devices[selection][0]
+            else:
+                print(f"\n{reset}Invalid selection. Exiting.")
+                return
+        except ValueError:
+            print(f"\n{reset}Invalid input. Exiting.")
             return
     elif not is_valid_mac_address(target_address):
-        print("\nInvalid MAC address format. Please enter a valid MAC address.")
-        return
+        print(f"\n{reset}Invalid MAC address format. Please enter a valid MAC address.")
+        return get_target_address()  # Prompt again for correct MAC address
 
     return target_address
 
