@@ -334,6 +334,14 @@ def process_duckyscript(client, duckyscript, current_line=0, current_position=0)
                 continue
             if line.startswith("TAB"):
                 client.send_keypress(Key_Codes.TAB)
+            elif line.startswith("DOWN"):
+                client.send_keypress(Key_Codes.DOWN)
+            elif line.startswith("UP"):
+                client.send_keypress(Key_Codes.UP)
+            elif line.startswith("LEFT"):
+                client.send_keypress(Key_Codes.LEFT)
+            elif line.startswith("RIGHT"):
+                client.send_keypress(Key_Codes.RIGHT)
             if line.startswith("PRIVATE_BROWSER"):
                 report = bytes([0xa1, 0x01, Modifier_Codes.CTRL.value | Modifier_Codes.SHIFT.value, 0x00, Key_Codes.n.value, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
                 client.send(report)
@@ -430,7 +438,10 @@ def process_duckyscript(client, duckyscript, current_line=0, current_position=0)
                     try:
                         # Convert to appropriate enums
                         modifier_enum = getattr(Modifier_Codes, modifier.upper())
-                        key_enum = getattr(Key_Codes, key.lower())
+                        try:
+                            key_enum = getattr(Key_Codes, key.upper())
+                        except AttributeError:
+                            key_enum = getattr(Key_Codes, key.lower())
                         client.send_keyboard_combination(modifier_enum, key_enum)
                         log.notice(f"Sent combination: {line}")
                     except AttributeError:
