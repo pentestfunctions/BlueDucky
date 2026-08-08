@@ -151,3 +151,18 @@ DELAY 300
 
 
 
+
+---
+
+## 🛠️ Kali Linux Compatibility Patches
+
+This repository includes custom helper scripts (`patch.py` and `patch_ssp.py`) designed to resolve common runtime issues encountered on Kali Linux systems.
+
+### 1. Adapter Auto-Up Patch (`patch.py`)
+- **Issue:** On Kali Linux, Bluetooth adapters (e.g., `hci0`) often start in a down/disabled state, causing `BlueDucky.py` to fail when assigning adapter properties.
+- **Fix:** Injects `sudo hciconfig hci0 up` and a 2-second sleep delay directly before adapter initialization inside `BlueDucky.py`.
+- **Usage:**
+### 2. SSP Bypass Patch (`patch_ssp.py`)
+- **Issue:** Modern Bluetooth drivers on Kali Linux frequently handle Secure Simple Pairing (SSP) natively. Attempting to explicitly force SSP via `BlueDucky.py` triggers `ConnectionFailureException("Failed to enable SSP")` and crashes execution.
+- **Fix:** Replaces the crashing `raise ConnectionFailureException(...)` line with a `pass` statement, bypassing the non-critical exception.
+- **Usage:**
