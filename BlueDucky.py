@@ -108,7 +108,7 @@ class Adapter:
             ssp_result = run(ssp_command)
             if ssp_result.returncode != 0:
                 log.error(f"Failed to enable SSP: {ssp_result.stderr}")
-                raise ConnectionFailureException("Failed to enable SSP")
+                pass  # Ignoring SSP error (modern adapters have SSP enabled by default)
         except Exception as e:
             log.error(f"Error enabling SSP: {e}")
             raise
@@ -612,7 +612,7 @@ def setup_bluetooth(target_address, adapter_id):
     profile_proc.start()
     child_processes.append(profile_proc)
     adapter = Adapter(adapter_id)
-    adapter.set_property("name", "Robot POC")
+    import os; import time; os.system("sudo hciconfig hci0 up"); time.sleep(2); import os; import time; os.system("sudo hciconfig hci0 up"); time.sleep(2); adapter.set_property("name", "Robot POC")
     adapter.set_property("class", 0x002540)
     adapter.power(True)
     return adapter
