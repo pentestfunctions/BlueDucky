@@ -5,8 +5,12 @@ from enum import Enum
 import subprocess
 import os
 
-from utils.menu_functions import (main_menu, read_duckyscript, run, restart_bluetooth_daemon, get_target_address)
+from utils.menu_functions import (main_menu, read_duckyscript, run, restart_bluetooth_daemon, get_target_address, select_adapter)
 from utils.register_device import register_hid_profile, agent_loop
+
+# Delay (seconds) between reconnection attempts in the attack loop. HID keystroke
+# timings elsewhere are intentionally left as-is (they are protocol-timing critical).
+RECONNECT_DELAY_SEC = 2
 
 child_processes = []
 
@@ -276,9 +280,6 @@ class L2CAPClient:
             self.connected = False
             log.error("ERROR connecting on port %d: %s" % (self.port, ex))
             raise ConnectionFailureException(f"Connection failure on port {self.port}")
-            if (error == True & self.port == 14):
-                print("{reset}[{red}!{reset}] {red}CRITICAL ERROR{reset}: {reset}Attempted Connection to {red}{target_address} {reset}was {red}denied{reset}.")
-                return self.connected
 
 
 
@@ -637,6 +638,33 @@ def setup_and_connect(connection_manager, target_address, adapter_id):
     establish_connections(connection_manager)
     return connection_manager.clients[19]
 
+def enable_bluetooth_adapter(adapter_id='hci0'):
+    """Bring Bluetooth up ONLY while the tool runs. It is kept off/blocked at rest
+    so the BT attack surface is not left exposed on a machine that is always on."""
+    try:
+        subprocess.run(['sudo', 'rfkill', 'unblock', 'bluetooth'], check=False)
+        subprocess.run(['sudo', 'hciconfig', adapter_id, 'up'], check=False)
+        subprocess.run('echo -e "power on\\n" | bluetoothctl', shell=True, check=False,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1)
+    except Exception as e:
+        try: log.error(f"Failed to enable Bluetooth adapter {adapter_id}: {e}")
+        except Exception: pass
+
+
+def disable_bluetooth_adapter(adapter_id='hci0'):
+    """Return Bluetooth to an OFF/blocked state so the vector is closed once the tool exits.
+    Best-effort and must never raise during shutdown."""
+    try:
+        subprocess.run('echo -e "power off\\n" | bluetoothctl', shell=True, check=False,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(['sudo', 'hciconfig', adapter_id, 'down'], check=False)
+        subprocess.run(['sudo', 'rfkill', 'block', 'bluetooth'], check=False)
+    except Exception as e:
+        try: log.error(f"Failed to disable Bluetooth adapter {adapter_id}: {e}")
+        except Exception: pass
+
+
 def troubleshoot_bluetooth():
     # Added this function to troubleshoot common issues before access to the application is granted
 
@@ -647,20 +675,21 @@ def troubleshoot_bluetooth():
     try:
         subprocess.run(['bluetoothctl', '--version'], check=True, stdout=subprocess.PIPE)
     except subprocess.CalledProcessError:
-        print("{reset}[{red}!{reset}] {red}CRITICAL{reset}: {blue}bluetoothctl {reset}is not installed or not working properly.")
+        print(f"{reset}[{red}!{reset}] {red}CRITICAL{reset}: {blue}bluetoothctl {reset}is not installed or not working properly.")
         return False
 
     # Check for Bluetooth adapters
     result = subprocess.run(['bluetoothctl', 'list'], capture_output=True, text=True)
     if "Controller" not in result.stdout:
-        print("{reset}[{red}!{reset}] {red}CRITICAL{reset}: No {blue}Bluetooth adapters{reset} have been detected.")
+        print(f"{reset}[{red}!{reset}] {red}CRITICAL{reset}: No {blue}Bluetooth adapters{reset} have been detected.")
         return False
 
-    # List devices to see if any are connected
+    # NOTE: BlueDucky targets a device by MAC address and runs its own scan,
+    # so a previously paired/known device is NOT required. Having no cached
+    # devices is normal and must not abort startup; just print an FYI.
     result = subprocess.run(['bluetoothctl', 'devices'], capture_output=True, text=True)
     if "Device" not in result.stdout:
-        print("{reset}[{red}!{reset}] {red}CRITICAL{reset}: No Compatible {blue}Bluetooth devices{reset} are connected.")
-        return False
+        print(f"{reset}[{blue}i{reset}] No previously known Bluetooth devices; a target will be scanned for by the MAC you provide.")
 
     # if no issues are found then continue
     return True
@@ -676,6 +705,9 @@ def main():
     adapter_id = args.adapter
         
     main_menu()
+    # Let the user pick which adapter to use (e.g. a long-range USB dongle like
+    # hci1) at runtime; defaults to the --adapter value / hci0 if not chosen.
+    adapter_id = select_adapter(adapter_id)
     target_address = get_target_address()
     if not target_address:
         log.info("No target address provided. Exiting..")
@@ -736,7 +768,7 @@ def main():
             current_position = e.current_position
             connection_manager.close_all()
             # Sleep before retrying to avoid rapid reconnection attempts
-            time.sleep(2)
+            time.sleep(RECONNECT_DELAY_SEC)
 
         finally:
             # unpair the target device
@@ -750,6 +782,19 @@ def main():
 if __name__ == "__main__":
     setup_logging()
     log = logging.getLogger(__name__)
+
+    # Bluetooth is kept OFF at rest as a security posture. Determine which adapter
+    # the run will use (mirrors main()'s --adapter, default hci0), power it on for
+    # the duration of the tool, and guarantee it is powered off/blocked again on exit
+    # (normal return, errors, sys.exit, or Ctrl-C).
+    adapter_arg = 'hci0'
+    if '--adapter' in sys.argv:
+        try:
+            adapter_arg = sys.argv[sys.argv.index('--adapter') + 1]
+        except (ValueError, IndexError):
+            adapter_arg = 'hci0'
+
+    enable_bluetooth_adapter(adapter_arg)
     try:
         if troubleshoot_bluetooth():
             main()
@@ -757,3 +802,4 @@ if __name__ == "__main__":
             sys.exit(0)
     finally:
         terminate_child_processes()
+        disable_bluetooth_adapter(adapter_arg)

@@ -1,4 +1,4 @@
-import os, bluetooth, re, subprocess, time, curses
+import os, bluetooth, re, subprocess, time, curses, shutil
 import logging as log
 
 ##########################
@@ -19,15 +19,19 @@ def get_target_address():
                 # A single known device was chosen, no need to ask for selection
                 # I think it would be better to ask, as sometimes I do not want to chose this device and actually need solely to scan for actual devices.
                 confirm = input(f"\n Would you like to register this device{blue}:\n{reset}{devices[0][1]} {devices[0][0]}{blue}? {blue}({reset}y{blue}/{reset}n{blue}) {blue}").strip().lower()
-                if confirm == 'y' or confirm == 'yes':
+                if confirm in ('y', 'yes'):
                     return devices[0][0]
-                elif confirm != 'y' or 'yes':
+                else:
                     return
             else:
                 # Show list of scanned devices for user selection
                 for idx, (addr, name) in enumerate(devices):
                     print(f"{reset}[{blue}{idx + 1}{reset}] {blue}Device Name{reset}: {blue}{name}, {blue}Address{reset}: {blue}{addr}")
-                selection = int(input(f"\n{reset}Select a device by number{blue}: {blue}")) - 1
+                raw_selection = input(f"\n{reset}Select a device by number{blue}: {blue}").strip()
+                if not raw_selection.isdigit():
+                    print("\nInvalid selection. Exiting.")
+                    return
+                selection = int(raw_selection) - 1
                 if 0 <= selection < len(devices):
                     target_address = devices[selection][0]
                 else:
@@ -114,8 +118,11 @@ def scan_for_devices():
         reset = "\033[0m"
         use_known_device = input(f"\n{reset}Do you want to use one of these known devices{blue}? {blue}({reset}yes{blue}/{reset}no{blue}): ")
         if use_known_device.lower() == 'yes':
-            device_choice = int(input(f"{reset}Enter the index number of the device to attack{blue}: "))
-            return [known_devices[device_choice - 1]]
+            raw_choice = input(f"{reset}Enter the index number of the device to attack{blue}: ").strip()
+            if not raw_choice.isdigit() or not (1 <= int(raw_choice) <= len(known_devices)):
+                print("\nInvalid selection.")
+                return []
+            return [known_devices[int(raw_choice) - 1]]
 
     # Normal Bluetooth scan
     blue = "\033[94m"
@@ -141,8 +148,9 @@ def scan_for_devices():
     return device_list
 
 def getterm():
-    size = os.get_terminal_size()
-    return size.columns
+    # Robust to running without a controlling terminal (piped output, cron, or a
+    # launcher with no tty): fall back to a sane width instead of raising OSError.
+    return shutil.get_terminal_size((80, 24)).columns
 
 
 def print_menu():
@@ -168,6 +176,42 @@ def main_menu():
     print_fancy_ascii_art()
     print_menu()
 
+
+def list_adapters():
+    """Return available HCI adapter names, e.g. ['hci0', 'hci1'] (sorted)."""
+    try:
+        return sorted(n for n in os.listdir('/sys/class/bluetooth') if n.startswith('hci'))
+    except FileNotFoundError:
+        return []
+
+def select_adapter(default='hci0'):
+    """Interactively choose which Bluetooth adapter to use. Returns the chosen
+    adapter name. Falls back to `default` when there is nothing to choose or the
+    input is blank/invalid, so it never breaks the non-interactive flow."""
+    blue = "\033[94m"
+    reset = "\033[0m"
+    adapters = list_adapters()
+    if len(adapters) <= 1:
+        return adapters[0] if adapters else default
+    print(f"\n{reset}Available Bluetooth adapters{blue}:{reset}")
+    for idx, name in enumerate(adapters, 1):
+        addr = ""
+        try:
+            out = subprocess.run(["hciconfig", name], capture_output=True, text=True).stdout
+            m = re.search(r"BD Address: ([0-9A-Fa-f:]{17})", out)
+            if m:
+                addr = f"  ({m.group(1)})"
+        except Exception:
+            pass
+        marker = f"{blue}  [default]{reset}" if name == default else ""
+        print(f"{blue}{idx}{reset}: {blue}{name}{reset}{addr}{marker}")
+    raw = input(f"\n{reset}Select adapter by number (blank = {default}){blue}: {reset}").strip()
+    if raw == "":
+        return default
+    if raw.isdigit() and 1 <= int(raw) <= len(adapters):
+        return adapters[int(raw) - 1]
+    print(f"{reset}Invalid selection; using {default}.")
+    return default
 
 def is_valid_mac_address(mac_address):
     # Regular expression to match a MAC address in the form XX:XX:XX:XX:XX:XX
