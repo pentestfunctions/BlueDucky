@@ -184,15 +184,50 @@ def list_adapters():
     except FileNotFoundError:
         return []
 
+def _adapter_usb_vendor(name):
+    """USB vendor id (lowercase hex, e.g. '0a12') for an hci adapter, or None if
+    it isn't USB. Read straight from sysfs so the adapter need not be powered up."""
+    path = os.path.realpath(f"/sys/class/bluetooth/{name}")
+    while path and path != "/":
+        vid = os.path.join(path, "idVendor")
+        if os.path.isfile(vid):
+            try:
+                return open(vid).read().strip().lower()
+            except Exception:
+                return None
+        path = os.path.dirname(path)
+    return None
+
+def find_ud100(adapters=None):
+    """Return the adapter name of a plugged-in Sena UD100 / CSR8510 (USB vendor
+    0a12 = Cambridge Silicon Radio), or None. The UD100 is a Class-1 long-range
+    dongle, so we prefer it when present. Re-checked every call, so it is fine
+    that the dongle is not always plugged in."""
+    if adapters is None:
+        adapters = list_adapters()
+    for name in adapters:
+        if _adapter_usb_vendor(name) == "0a12":
+            return name
+    return None
+
 def select_adapter(default='hci0'):
-    """Interactively choose which Bluetooth adapter to use. Returns the chosen
-    adapter name. Falls back to `default` when there is nothing to choose or the
-    input is blank/invalid, so it never breaks the non-interactive flow."""
+    """Interactively choose which Bluetooth adapter to use. If a Sena UD100
+    (CSR8510) is plugged in, it becomes the default for its longer range.
+    Returns the chosen adapter; falls back to `default` on blank/invalid input,
+    so it never breaks the non-interactive flow."""
     blue = "\033[94m"
     reset = "\033[0m"
     adapters = list_adapters()
+    ud100 = find_ud100(adapters)
+    if ud100:
+        default = ud100  # auto-prefer the long-range UD100 whenever it is plugged in
+
     if len(adapters) <= 1:
-        return adapters[0] if adapters else default
+        only = adapters[0] if adapters else default
+        if only == ud100:
+            print(f"\n{blue}[i] Using long-range Sena UD100 ({only}).{reset}")
+        return only
+
     print(f"\n{reset}Available Bluetooth adapters{blue}:{reset}")
     for idx, name in enumerate(adapters, 1):
         addr = ""
@@ -203,8 +238,12 @@ def select_adapter(default='hci0'):
                 addr = f"  ({m.group(1)})"
         except Exception:
             pass
-        marker = f"{blue}  [default]{reset}" if name == default else ""
-        print(f"{blue}{idx}{reset}: {blue}{name}{reset}{addr}{marker}")
+        tag = ""
+        if name == ud100:
+            tag += f"{blue}  [Sena UD100 - long range]{reset}"
+        if name == default:
+            tag += f"{blue}  [default]{reset}"
+        print(f"{blue}{idx}{reset}: {blue}{name}{reset}{addr}{tag}")
     raw = input(f"\n{reset}Select adapter by number (blank = {default}){blue}: {reset}").strip()
     if raw == "":
         return default
